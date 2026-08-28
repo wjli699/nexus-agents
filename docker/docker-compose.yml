@@ -1,0 +1,44 @@
+# Default setup: n8n + Postgres.
+# This is the straightforward path — no local LLM sidecar, no Tailscale
+# containers. Assumes Tailscale is installed at the OS level on this host
+# (see docs/SETUP.md step 1) and you're calling an LLM (local or Claude API)
+# from within n8n workflows via plain HTTP Request nodes.
+#
+# For a local-LLM-on-separate-hardware setup, see:
+#   ../docker/optional-ollama-tailscale/
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest   # pin to a specific tag once stable, see README
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/Los_Angeles}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_SECURE_COOKIE=false
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=https
+      # Deprecation defaults pinned explicitly — see n8n startup warnings
+      - N8N_UNVERIFIED_PACKAGES_ENABLED=true
+      - N8N_RUNNERS_TASK_TIMEOUT=300
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-nexus}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-nexus}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  n8n_data:
+  pg_data:

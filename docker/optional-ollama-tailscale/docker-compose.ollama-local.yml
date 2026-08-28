@@ -1,0 +1,37 @@
+# OPTIONAL: Ollama running locally (same host as n8n, or reachable via
+# plain LAN IP — no Tailscale needed if both boxes are always on the same
+# local network).
+#
+# Usage: run this alongside the main docker-compose.yml, either on the same
+# host or a separate one. Point your n8n HTTP Request nodes at whatever
+# hostname/IP this ends up reachable on.
+#
+#   docker compose -f docker-compose.ollama-local.yml up -d
+#
+# After starting, pull a model:
+#   docker exec -it ollama ollama pull qwen3.5:9b
+#
+# NOTE on reasoning models (Qwen3, etc.): pass "think": false in your API
+# request body, or JSON output lands in the `thinking` field instead of
+# `response` and your parser will get an empty string. See docs/JOURNAL.md #10.
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment for GPU acceleration if available (NVIDIA only):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:

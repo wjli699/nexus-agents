@@ -1,0 +1,58 @@
+# OPTIONAL: Ollama on separate hardware, joined to your tailnet as a
+# container-only sidecar (no OS-level Tailscale install needed on the host).
+#
+# Useful when the host OS is locked-down/proprietary (e.g. Yocto Linux,
+# embedded boards) where installing Tailscale at the OS level isn't
+# practical, but Docker is available.
+#
+# Requires a Tailscale auth key (not the same as the interactive browser
+# login flow used for laptops/desktops):
+#   1. https://login.tailscale.com/admin/settings/keys -> Generate auth key
+#   2. Recommended: reusable=off, ephemeral=off, since this device should
+#      persist in your tailnet across container restarts
+#   3. Put the key in .env as TS_AUTHKEY (see .env.example)
+#
+# Usage:
+#   docker compose -f docker-compose.ollama-tailscale.yml up -d
+#
+# Verify from another tailnet device:
+#   tailscale status                              # should list the new hostname
+#   curl http://<hostname>:11434/api/tags         # should return model list
+#
+# NOTE on reasoning models: same "think": false requirement as the local
+# variant — see docs/JOURNAL.md #10.
+#
+# NOTE on migrating existing models: if you already run Ollama standalone
+# on this box, point the ollama_data volume below at your existing model
+# storage path to avoid re-downloading everything.
+
+services:
+  tailscale:
+    image: tailscale/tailscale
+    container_name: ollama-tailscale
+    hostname: ${OLLAMA_TS_HOSTNAME:-ollama-server}
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - ts_data:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    network_mode: service:tailscale   # shares tailscale's network namespace
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    # Do NOT add a "ports" section here — network_mode: service:tailscale
+    # means ollama's 11434 is exposed via the tailscale container's tailnet
+    # identity automatically.
+
+volumes:
+  ts_data:
+  ollama_data:

@@ -1,0 +1,19 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# n8n local state if ever bind-mounted instead of named volume
+n8n-data/
+n8n_data/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
