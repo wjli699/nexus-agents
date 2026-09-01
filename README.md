@@ -77,8 +77,9 @@ nexus/
 ├── README.md                          this file
 ├── .env.example                       template for secrets — copy to .env
 ├── .gitignore
+├── nexus-backend/                     FastAPI service — agent logic migrated out of n8n (Milestone 1)
 ├── docker/
-│   ├── docker-compose.yml             DEFAULT setup: n8n + Postgres only
+│   ├── docker-compose.yml             DEFAULT setup: n8n + Postgres + nexus-backend
 │   └── optional-ollama-tailscale/
 │       ├── docker-compose.ollama-local.yml       Ollama on same host, no Tailscale
 │       └── docker-compose.ollama-tailscale.yml   Ollama as Tailscale sidecar (separate host)

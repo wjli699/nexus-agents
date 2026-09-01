@@ -11,7 +11,7 @@ Goal: move existing working n8n logic into a real, testable Python service.
 No new functionality — this is a straight port, verified against current
 n8n behavior at each step.
 
-- [ ] Scaffold FastAPI project (`nexus-backend/`), Dockerfile, add to
+- [x] Scaffold FastAPI project (`nexus-backend/`), Dockerfile, add to
       docker-compose alongside n8n/Postgres
 - [ ] Implement `/agents/stock/handle` (combined endpoint — classify +
       route + execute, see api-spec-v0.1.md)

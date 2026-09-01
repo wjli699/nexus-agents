@@ -28,6 +28,22 @@ services:
     depends_on:
       - postgres
 
+  nexus-backend:
+    build: ../nexus-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"          # also reachable in-network as http://nexus-backend:8000
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-nexus}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-nexus}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://localhost:11434}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.5:9b}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:16
     restart: unless-stopped

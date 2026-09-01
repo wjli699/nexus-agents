@@ -1,0 +1,7 @@
+# Pinned loosely (compatible-release) — tighten to exact versions once the
+# migration is stable, same policy as the n8n image tag (see README).
+fastapi~=0.115
+uvicorn[standard]~=0.32
+asyncpg~=0.30
+httpx~=0.27
+pydantic-settings~=2.6
