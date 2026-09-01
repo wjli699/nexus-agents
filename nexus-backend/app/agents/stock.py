@@ -77,4 +77,8 @@ async def remove(ticker: str) -> str:
 
 
 async def list_() -> str:
-    raise NotImplementedError  # ROADMAP M1: port `list` (Postgres SELECT)
+    # Port of "Execute a SQL query2" + "List Formatter".
+    rows = await db.get_pool().fetch("SELECT ticker FROM watchlist ORDER BY ticker")
+    if not rows:
+        return "Your watchlist is empty."
+    return "Your watchlist:\n" + "\n".join(r["ticker"] for r in rows)

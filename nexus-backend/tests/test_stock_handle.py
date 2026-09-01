@@ -1,10 +1,9 @@
-"""Routing tests for /agents/stock/handle.
+"""Routing + executor tests for /agents/stock/handle.
 
-The LLM classify call is stubbed (no network); per-action executors are
-still stubs, so a valid action currently surfaces as 501.
+The LLM classify call is stubbed (no network); DB and Alpha Vantage are
+stubbed via the fake_pool fixture / monkeypatched market call.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -19,13 +18,6 @@ def _stub_classify(monkeypatch, action, ticker):
     monkeypatch.setattr("app.agents.stock.llm.classify", fake)
 
 
-@pytest.mark.parametrize("action, ticker", [("list", None)])
-def test_unported_action_routes_to_stub(monkeypatch, action, ticker):
-    _stub_classify(monkeypatch, action, ticker)
-    resp = client.post("/agents/stock/handle", json={"message": "..."})
-    assert resp.status_code == 501  # executor stubbed, but routing reached it
-
-
 def test_add_inserts_uppercased_and_confirms(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, "add", "tsla")
     pool = fake_pool()
@@ -36,6 +28,20 @@ def test_add_inserts_uppercased_and_confirms(monkeypatch, fake_pool):
     assert method == "execute" and args == ("TSLA",)
     assert "ON CONFLICT (ticker) DO NOTHING" in query
     assert "'" not in query.split("VALUES")[1]  # bound param, not interpolated
+
+
+def test_list_formats_watchlist(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, "list", None)
+    fake_pool(fetch_rows=[{"ticker": "AAPL"}, {"ticker": "TSLA"}])
+    resp = client.post("/agents/stock/handle", json={"message": "show my list"})
+    assert resp.json()["text"] == "Your watchlist:\nAAPL\nTSLA"
+
+
+def test_list_empty(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, "list", None)
+    fake_pool(fetch_rows=[])
+    resp = client.post("/agents/stock/handle", json={"message": "show my list"})
+    assert resp.json()["text"] == "Your watchlist is empty."
 
 
 def test_check_returns_formatted_quote(monkeypatch):

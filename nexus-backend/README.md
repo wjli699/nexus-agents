@@ -10,12 +10,15 @@ check it before adding a route.
 ## Current state
 
 `GET /health` works. `POST /agents/stock/handle` does classify → route →
-validate → dispatch. `check` (Alpha Vantage GLOBAL_QUOTE), `add` (INSERT),
-and `remove` (DELETE … RETURNING) are ported; `list` is still stubbed and
-surfaces as `501` until the last ROADMAP M1 port.
+validate → dispatch, with all four actions ported from the n8n branches:
+`check` (Alpha Vantage GLOBAL_QUOTE), `add` (INSERT), `remove`
+(DELETE … RETURNING), `list` (SELECT).
 
 DB-backed executors use bound params (`$1`), not the string-interpolated
 `UPPER('...')` SQL the n8n nodes used.
+
+Not yet done in M1: simplify the n8n workflow to 3 nodes, side-by-side
+parity test, decommission the old branches.
 
 ## Layout
 

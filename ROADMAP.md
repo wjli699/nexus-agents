@@ -21,7 +21,7 @@ n8n behavior at each step.
 - [x] Port `add` logic (Postgres INSERT, UPPER() normalization)
 - [x] Port `remove` logic (Postgres DELETE...RETURNING, the
       optional-chaining fix for "wasn't on your watchlist")
-- [ ] Port `list` logic (Postgres SELECT + empty-list handling)
+- [x] Port `list` logic (Postgres SELECT + empty-list handling)
 - [ ] Simplify n8n workflow to 3 nodes: Trigger → HTTP Request → Reply
 - [ ] Side-by-side test: same 6+ test messages from earlier testing,
       confirm identical behavior to the n8n-only version
