@@ -19,7 +19,7 @@ def _stub_classify(monkeypatch, action, ticker):
     monkeypatch.setattr("app.agents.stock.llm.classify", fake)
 
 
-@pytest.mark.parametrize("action, ticker", [("remove", "NVDA"), ("list", None)])
+@pytest.mark.parametrize("action, ticker", [("list", None)])
 def test_unported_action_routes_to_stub(monkeypatch, action, ticker):
     _stub_classify(monkeypatch, action, ticker)
     resp = client.post("/agents/stock/handle", json={"message": "..."})
@@ -52,6 +52,23 @@ def test_check_returns_formatted_quote(monkeypatch):
     resp = client.post("/agents/stock/handle", json={"message": "price of AAPL"})
     assert resp.status_code == 200
     assert resp.json()["text"] == "AAPL: $227.1400 (0.7965%)"
+
+
+def test_remove_deletes_and_confirms(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, "remove", "nvda")
+    pool = fake_pool(delete_returns="NVDA")
+    resp = client.post("/agents/stock/handle", json={"message": "drop nvda"})
+    assert resp.json()["text"] == "Removed NVDA from your watchlist."
+    method, query, args = pool.calls[0]
+    assert method == "fetchval" and args == ("NVDA",)
+    assert "RETURNING ticker" in query
+
+
+def test_remove_ticker_not_on_list(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, "remove", "zzzz")
+    fake_pool(delete_returns=None)
+    resp = client.post("/agents/stock/handle", json={"message": "drop zzzz"})
+    assert resp.json()["text"] == "ZZZZ wasn't on your watchlist."
 
 
 def test_check_unknown_ticker(monkeypatch):

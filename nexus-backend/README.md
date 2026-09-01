@@ -10,9 +10,9 @@ check it before adding a route.
 ## Current state
 
 `GET /health` works. `POST /agents/stock/handle` does classify → route →
-validate → dispatch. `check` (Alpha Vantage GLOBAL_QUOTE) and `add`
-(Postgres INSERT) are ported; `remove` / `list` are still stubbed and
-surface as `501` until the remaining ROADMAP M1 items port them.
+validate → dispatch. `check` (Alpha Vantage GLOBAL_QUOTE), `add` (INSERT),
+and `remove` (DELETE … RETURNING) are ported; `list` is still stubbed and
+surfaces as `501` until the last ROADMAP M1 port.
 
 DB-backed executors use bound params (`$1`), not the string-interpolated
 `UPPER('...')` SQL the n8n nodes used.

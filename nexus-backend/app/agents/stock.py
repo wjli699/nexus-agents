@@ -64,7 +64,16 @@ async def add(ticker: str) -> str:
 
 
 async def remove(ticker: str) -> str:
-    raise NotImplementedError  # ROADMAP M1: port `remove` (Postgres DELETE...RETURNING)
+    # Port of "Execute a SQL query1" + "Remote Formatter". fetchval() returns
+    # the RETURNING value or None — the clean equivalent of the n8n
+    # `deleted[0]?.json?.ticker` optional-chaining fix (JOURNAL.md #3).
+    ticker = ticker.upper()
+    removed = await db.get_pool().fetchval(
+        "DELETE FROM watchlist WHERE ticker = $1 RETURNING ticker", ticker
+    )
+    if removed:
+        return f"Removed {removed} from your watchlist."
+    return f"{ticker} wasn't on your watchlist."
 
 
 async def list_() -> str:
