@@ -40,13 +40,14 @@ Goal: proactive alerts, not just reactive commands.
 - [x] Implement `/agents/stock/heartbeat` endpoint — deterministic
       threshold check (>= `HEARTBEAT_MOVE_THRESHOLD_PCT`, default 5%) across
       watchlist; no LLM. Returns `{alert:false}` or `{alert:true, text}`.
-- [ ] Add n8n Cron trigger (e.g. every 30–60 min during market hours) →
-      call heartbeat endpoint → only send Telegram message if
-      `alert: true`
+- [x] Add n8n Cron trigger → call heartbeat endpoint → only send Telegram
+      message if `alert: true` (`workflows/stock-heartbeat.json`; default
+      is one midday run/weekday — Alpha Vantage free tier is 25 req/day and
+      each run is one request per ticker, see `docs/HEARTBEAT.md`)
 - [ ] Verify "quiet on a normal day" behavior — run for a full day, confirm
-      no spam when nothing notable happens
-- [ ] Document the pattern in README as reusable for future agents
-      (family digest, task nudges, etc.)
+      no spam when nothing notable happens (steps in `docs/HEARTBEAT.md`)
+- [x] Document the pattern as reusable for future agents — `docs/HEARTBEAT.md`
+      (linked from README)
 
 ## Milestone 3: Family / Household Agent
 Goal: second agent, proves the router pattern works with 2+ agents.

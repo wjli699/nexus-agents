@@ -89,7 +89,8 @@ nexus/
 │   └── init.sql                       watchlist table + future agent tables
 ├── workflows/
 │   ├── workflows.json                 exported n8n workflow (see docs/EXPORTING.md)
-│   └── stock-agent-slim.json          3-node workflow that calls nexus-backend
+│   ├── stock-agent-slim.json          3-node workflow that calls nexus-backend
+│   └── stock-heartbeat.json           Cron → heartbeat endpoint → alert if notable
 ├── scripts/
 │   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/
@@ -97,7 +98,8 @@ nexus/
     ├── MILESTONES.md                  roadmap / checklist
     ├── SETUP.md                       clean step-by-step setup from zero
     ├── EXPORTING.md                   how to export/version your n8n workflows
-    └── BACKEND-CUTOVER.md             swapping n8n over to nexus-backend
+    ├── BACKEND-CUTOVER.md             swapping n8n over to nexus-backend
+    └── HEARTBEAT.md                   the scheduled-but-silent alert pattern
 ```
 
 ---
