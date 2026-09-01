@@ -2,9 +2,8 @@
 
 Port of the n8n HTTP Request (Ollama) node + Code (parse) node.
 
-The exact prompt text is refined by the next ROADMAP item ("Port classify
-prompt from n8n's HTTP Request node"); this module owns the request shape
-and the defensive parse.
+Prompt, request body, and parse are ported verbatim from the "HTTP Request"
+and "LLM Parser" nodes in workflows/workflows.json.
 
 JOURNAL.md #10: local reasoning models (Qwen3) put JSON in `thinking` unless
 `"think": false` is passed. We pass it *and* parse defensively.
@@ -21,10 +20,10 @@ from .config import get_settings
 
 VALID_ACTIONS = {"check", "add", "remove", "list"}
 
-# TODO(ROADMAP M1): replace with the exact prompt from the n8n node.
+# Verbatim from the n8n "HTTP Request" node (single line, exact punctuation).
 CLASSIFY_PROMPT = (
-    "Classify this stock command into JSON only, no other text:\n"
-    '{{"action": "check|list|add|remove", "ticker": "SYMBOL or null"}}.\n'
+    "Classify this stock command into JSON only, no other text: "
+    '{{"action": "check|list|add|remove", "ticker": "SYMBOL or null"}}. '
     "Message: {message}"
 )
 
