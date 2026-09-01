@@ -6,7 +6,7 @@ Suggested Project board columns: **Backlog → In Progress → Done**.
 
 ---
 
-## Milestone 1: Python Backend Migration (Stock Agent)
+## Milestone 1: Python Backend Migration (Stock Agent) — DONE
 Goal: move existing working n8n logic into a real, testable Python service.
 No new functionality — this is a straight port, verified against current
 n8n behavior at each step.
@@ -14,22 +14,25 @@ n8n behavior at each step.
 - [x] Scaffold FastAPI project (`nexus-backend/`), Dockerfile, add to
       docker-compose alongside n8n/Postgres
 - [x] Implement `/agents/stock/handle` (combined endpoint — classify +
-      route + execute, see api-spec-v0.1.md) — orchestration + routing +
-      validation done; per-action executors stubbed (next items)
+      route + execute, see api-spec-v0.1.md)
 - [x] Port classify prompt from n8n's HTTP Request node
 - [x] Port `check` logic (Alpha Vantage call + formatting)
 - [x] Port `add` logic (Postgres INSERT, UPPER() normalization)
 - [x] Port `remove` logic (Postgres DELETE...RETURNING, the
       optional-chaining fix for "wasn't on your watchlist")
 - [x] Port `list` logic (Postgres SELECT + empty-list handling)
-- [ ] Simplify n8n workflow to 3 nodes: Trigger → HTTP Request → Reply
-      (draft ready: `workflows/stock-agent-slim.json`; steps in
-      `docs/BACKEND-CUTOVER.md`)
-- [ ] Side-by-side test: same 6+ test messages from earlier testing,
-      confirm identical behavior to the n8n-only version
-      (`scripts/parity_check.py` — 11 cases)
-- [ ] Decommission old n8n branches (Switch node, per-branch Postgres
-      nodes) once parity confirmed (`docs/BACKEND-CUTOVER.md` step 3)
+- [x] Simplify n8n workflow to 3 nodes: Trigger → HTTP Request → Reply
+      (`workflows/stock-agent-slim.json`; steps in `docs/BACKEND-CUTOVER.md`)
+- [x] Side-by-side test: `scripts/parity_check.py` (11 cases) + full
+      command set re-run end-to-end through Telegram against the backend
+- [x] Decommission old n8n branches — done wholesale: the n8n_data volume
+      was wiped during setup, so the old fat workflow (Switch, per-branch
+      Postgres nodes, etc.) is gone. Only the slim workflow was re-imported.
+
+Notes:
+- Bound params (`$1`) replace n8n's `UPPER('...')` string interpolation.
+- Unrecognised messages / missing tickers return usage text; the old n8n
+  Switch defaulted to `check` and threw on a null ticker.
 
 ## Milestone 2: Heartbeat Pattern (borrowed from OpenClaw)
 Goal: proactive alerts, not just reactive commands.

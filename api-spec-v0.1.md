@@ -133,7 +133,7 @@ POST /agents/news/heartbeat      — scheduled digest delivery
 
 ## Progress checklist (update as you build)
 
-- [ ] `/agents/stock/handle` (combined, recommended) — or 1.1–1.5 separately
+- [x] `/agents/stock/handle` (combined) — classify + route + check/add/remove/list
 - [ ] `/agents/stock/heartbeat`
-- [ ] n8n workflow simplified to Trigger → HTTP Request → Telegram reply
+- [x] n8n workflow simplified to Trigger → HTTP Request → Telegram reply
 - [ ] `/router/classify` (only once agent #2 starts)

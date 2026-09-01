@@ -58,7 +58,9 @@ service) without rewriting the agent logic.
 - [x] n8n reachable publicly via Tailscale Funnel (for Telegram webhooks)
 - [x] LLM-based intent classification (local Ollama model, JSON output)
 - [x] Stock agent — `check` command (Alpha Vantage price lookup)
-- [ ] Stock agent — `add` / `remove` / `list` (Postgres-backed watchlist)
+- [x] Stock agent — `add` / `remove` / `list` (Postgres-backed watchlist)
+- [x] Stock agent logic migrated to a Python (FastAPI) backend; n8n is now
+      a 3-node thin layer (Trigger → HTTP Request → Reply). See `nexus-backend/`
 - [ ] Stock agent — scheduled/proactive alerts
 - [ ] Home/family agent (email + calendar tracking)
 - [ ] General task/goal tracking agent
