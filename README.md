@@ -86,12 +86,16 @@ nexus/
 ├── sql/
 │   └── init.sql                       watchlist table + future agent tables
 ├── workflows/
-│   └── (exported n8n workflow JSON goes here as you build — see docs/EXPORTING.md)
+│   ├── workflows.json                 exported n8n workflow (see docs/EXPORTING.md)
+│   └── stock-agent-slim.json          3-node workflow that calls nexus-backend
+├── scripts/
+│   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/
     ├── JOURNAL.md                     what we actually hit building this, in order
     ├── MILESTONES.md                  roadmap / checklist
     ├── SETUP.md                       clean step-by-step setup from zero
-    └── EXPORTING.md                   how to export/version your n8n workflows
+    ├── EXPORTING.md                   how to export/version your n8n workflows
+    └── BACKEND-CUTOVER.md             swapping n8n over to nexus-backend
 ```
 
 ---

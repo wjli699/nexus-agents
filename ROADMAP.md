@@ -23,10 +23,13 @@ n8n behavior at each step.
       optional-chaining fix for "wasn't on your watchlist")
 - [x] Port `list` logic (Postgres SELECT + empty-list handling)
 - [ ] Simplify n8n workflow to 3 nodes: Trigger → HTTP Request → Reply
+      (draft ready: `workflows/stock-agent-slim.json`; steps in
+      `docs/BACKEND-CUTOVER.md`)
 - [ ] Side-by-side test: same 6+ test messages from earlier testing,
       confirm identical behavior to the n8n-only version
+      (`scripts/parity_check.py` — 11 cases)
 - [ ] Decommission old n8n branches (Switch node, per-branch Postgres
-      nodes) once parity confirmed
+      nodes) once parity confirmed (`docs/BACKEND-CUTOVER.md` step 3)
 
 ## Milestone 2: Heartbeat Pattern (borrowed from OpenClaw)
 Goal: proactive alerts, not just reactive commands.

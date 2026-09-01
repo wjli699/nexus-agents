@@ -1,0 +1,55 @@
+{
+  "name": "Stock Agent (slim - calls nexus-backend)",
+  "nodes": [
+    {
+      "parameters": { "updates": ["message"], "additionalFields": {} },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [0, 0],
+      "id": "aa000001-0000-4000-8000-000000000001",
+      "name": "Telegram Trigger",
+      "credentials": {
+        "telegramApi": { "id": "NqjrJbRKP5GE9pf9", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://nexus-backend:8000/agents/stock/handle",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.message.text) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [220, 0],
+      "id": "aa000002-0000-4000-8000-000000000002",
+      "name": "Call backend"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [440, 0],
+      "id": "aa000003-0000-4000-8000-000000000003",
+      "name": "Send reply",
+      "credentials": {
+        "telegramApi": { "id": "NqjrJbRKP5GE9pf9", "name": "Telegram account" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Call backend", "type": "main", "index": 0 }]]
+    },
+    "Call backend": {
+      "main": [[{ "node": "Send reply", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
