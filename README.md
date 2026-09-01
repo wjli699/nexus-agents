@@ -58,7 +58,9 @@ service) without rewriting the agent logic.
 - [x] n8n reachable publicly via Tailscale Funnel (for Telegram webhooks)
 - [x] LLM-based intent classification (local Ollama model, JSON output)
 - [x] Stock agent — `check` command (Alpha Vantage price lookup)
-- [ ] Stock agent — `add` / `remove` / `list` (Postgres-backed watchlist)
+- [x] Stock agent — `add` / `remove` / `list` (Postgres-backed watchlist)
+- [x] Stock agent logic migrated to a Python (FastAPI) backend; n8n is now
+      a 3-node thin layer (Trigger → HTTP Request → Reply). See `nexus-backend/`
 - [ ] Stock agent — scheduled/proactive alerts
 - [ ] Home/family agent (email + calendar tracking)
 - [ ] General task/goal tracking agent
@@ -77,20 +79,25 @@ nexus/
 ├── README.md                          this file
 ├── .env.example                       template for secrets — copy to .env
 ├── .gitignore
+├── nexus-backend/                     FastAPI service — agent logic migrated out of n8n (Milestone 1)
 ├── docker/
-│   ├── docker-compose.yml             DEFAULT setup: n8n + Postgres only
+│   ├── docker-compose.yml             DEFAULT setup: n8n + Postgres + nexus-backend
 │   └── optional-ollama-tailscale/
 │       ├── docker-compose.ollama-local.yml       Ollama on same host, no Tailscale
 │       └── docker-compose.ollama-tailscale.yml   Ollama as Tailscale sidecar (separate host)
 ├── sql/
 │   └── init.sql                       watchlist table + future agent tables
 ├── workflows/
-│   └── (exported n8n workflow JSON goes here as you build — see docs/EXPORTING.md)
+│   ├── workflows.json                 exported n8n workflow (see docs/EXPORTING.md)
+│   └── stock-agent-slim.json          3-node workflow that calls nexus-backend
+├── scripts/
+│   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/
     ├── JOURNAL.md                     what we actually hit building this, in order
     ├── MILESTONES.md                  roadmap / checklist
     ├── SETUP.md                       clean step-by-step setup from zero
-    └── EXPORTING.md                   how to export/version your n8n workflows
+    ├── EXPORTING.md                   how to export/version your n8n workflows
+    └── BACKEND-CUTOVER.md             swapping n8n over to nexus-backend
 ```
 
 ---

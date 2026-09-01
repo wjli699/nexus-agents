@@ -17,3 +17,11 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Python (nexus-backend)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/

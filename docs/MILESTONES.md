@@ -14,9 +14,11 @@ language — see rationale in journal / design discussion.
 
 - [x] Intent classification: message → `{action, ticker}` via local LLM
 - [x] `check <TICKER>` — current price lookup (Alpha Vantage)
-- [ ] `add <TICKER>` — add to Postgres-backed watchlist
-- [ ] `remove <TICKER>` — remove from watchlist
-- [ ] `list` — show current watchlist with live prices
+- [x] `add <TICKER>` — add to Postgres-backed watchlist
+- [x] `remove <TICKER>` — remove from watchlist
+- [x] `list` — show current watchlist
+- [x] Logic migrated from n8n nodes to the FastAPI backend (`nexus-backend/`);
+      n8n reduced to Trigger → HTTP Request → Reply (ROADMAP Milestone 1)
 - [ ] Scheduled check (cron trigger) — daily/periodic scan of watchlist
 - [ ] Threshold-based alerts (e.g. "notify if drops >5% in a day") —
       keep alert *logic* deterministic/rule-based, use LLM only to explain
