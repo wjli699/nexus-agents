@@ -9,16 +9,21 @@ check it before adding a route.
 
 ## Current state
 
-Milestone 1 complete. `POST /agents/stock/handle` does classify → route →
-validate → dispatch, with all four actions ported from the n8n branches:
-`check` (Alpha Vantage GLOBAL_QUOTE), `add` (INSERT), `remove`
-(DELETE … RETURNING), `list` (SELECT). n8n is now a 3-node workflow
-(`workflows/stock-agent-slim.json`) that just POSTs here and replies.
+`POST /agents/stock/handle` — command path: classify → route → dispatch to
+`check` (Alpha Vantage GLOBAL_QUOTE) / `add` (INSERT) / `remove`
+(DELETE … RETURNING) / `list` (SELECT). n8n is a 3-node workflow
+(`workflows/stock-agent-slim.json`) that POSTs here and replies.
+
+`POST /agents/stock/heartbeat` — proactive path (M2): scans the watchlist,
+returns `{"alert": false}` on a normal day or
+`{"alert": true, "text": "..."}` when a ticker moved at least
+`HEARTBEAT_MOVE_THRESHOLD_PCT` (default 5%) on the day. Detection and
+phrasing are both deterministic — no LLM. Optional `{"threshold_pct": N}`
+body overrides the default. n8n calls this on a Cron schedule and only
+messages Telegram when `alert` is true.
 
 DB-backed executors use bound params (`$1`), not the string-interpolated
 `UPPER('...')` SQL the n8n nodes used.
-
-Next (Milestone 2): `POST /agents/stock/heartbeat`.
 
 ## Layout
 

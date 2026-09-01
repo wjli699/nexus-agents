@@ -37,8 +37,9 @@ Notes:
 ## Milestone 2: Heartbeat Pattern (borrowed from OpenClaw)
 Goal: proactive alerts, not just reactive commands.
 
-- [ ] Implement `/agents/stock/heartbeat` endpoint — deterministic
-      threshold check (e.g. >5% daily move) across watchlist
+- [x] Implement `/agents/stock/heartbeat` endpoint — deterministic
+      threshold check (>= `HEARTBEAT_MOVE_THRESHOLD_PCT`, default 5%) across
+      watchlist; no LLM. Returns `{alert:false}` or `{alert:true, text}`.
 - [ ] Add n8n Cron trigger (e.g. every 30–60 min during market hours) →
       call heartbeat endpoint → only send Telegram message if
       `alert: true`

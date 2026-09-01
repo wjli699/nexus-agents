@@ -41,6 +41,7 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL:-http://localhost:11434}
       - LLM_MODEL=${LLM_MODEL:-qwen3.5:9b}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+      - HEARTBEAT_MOVE_THRESHOLD_PCT=${HEARTBEAT_MOVE_THRESHOLD_PCT:-5.0}
     depends_on:
       - postgres
 
