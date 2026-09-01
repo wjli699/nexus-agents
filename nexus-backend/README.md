@@ -9,8 +9,10 @@ check it before adding a route.
 
 ## Current state
 
-Scaffold only. `GET /health` works; `POST /agents/stock/handle` is a 501
-stub. Each ROADMAP M1 item fills in one port from the n8n workflow.
+`GET /health` works. `POST /agents/stock/handle` does classify → route →
+validate → dispatch; the per-action executors (check/add/remove/list) are
+still stubbed and surface as `501` until the remaining ROADMAP M1 items
+port them from the n8n branches.
 
 ## Layout
 
@@ -19,9 +21,12 @@ app/
 ├── main.py            FastAPI app + lifespan (DB pool) + /health
 ├── config.py          env-var settings (mirrors compose Postgres vars)
 ├── db.py              asyncpg pool lifecycle
+├── llm.py             intent classification (Ollama call + defensive parse)
+├── agents/
+│   └── stock.py       classify + route + execute; per-action executors
 └── routers/
     └── stock.py       /agents/stock/* — the stock agent HTTP surface
-tests/                 smoke tests (no DB/LLM needed)
+tests/                 routing + parse tests (LLM call stubbed, no network)
 ```
 
 ## Run locally

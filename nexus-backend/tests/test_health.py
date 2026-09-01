@@ -17,8 +17,3 @@ def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
-
-
-def test_stock_handle_stubbed():
-    resp = client.post("/agents/stock/handle", json={"message": "check AAPL"})
-    assert resp.status_code == 501
