@@ -19,14 +19,23 @@ def _stub_classify(monkeypatch, action, ticker):
     monkeypatch.setattr("app.agents.stock.llm.classify", fake)
 
 
-@pytest.mark.parametrize(
-    "action, ticker",
-    [("add", "TSLA"), ("remove", "NVDA"), ("list", None)],
-)
+@pytest.mark.parametrize("action, ticker", [("remove", "NVDA"), ("list", None)])
 def test_unported_action_routes_to_stub(monkeypatch, action, ticker):
     _stub_classify(monkeypatch, action, ticker)
     resp = client.post("/agents/stock/handle", json={"message": "..."})
     assert resp.status_code == 501  # executor stubbed, but routing reached it
+
+
+def test_add_inserts_uppercased_and_confirms(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, "add", "tsla")
+    pool = fake_pool()
+    resp = client.post("/agents/stock/handle", json={"message": "watch tsla"})
+    assert resp.status_code == 200
+    assert resp.json()["text"] == "Added TSLA to your watchlist."
+    method, query, args = pool.calls[0]
+    assert method == "execute" and args == ("TSLA",)
+    assert "ON CONFLICT (ticker) DO NOTHING" in query
+    assert "'" not in query.split("VALUES")[1]  # bound param, not interpolated
 
 
 def test_check_returns_formatted_quote(monkeypatch):

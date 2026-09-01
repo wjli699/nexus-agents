@@ -11,7 +11,7 @@ Routing, validation, and the unknown-command fallback are done here.
 
 from __future__ import annotations
 
-from .. import llm, market
+from .. import db, llm, market
 
 _USAGE = "Try: check AAPL / add AAPL / remove AAPL / list"
 
@@ -51,7 +51,16 @@ async def check(ticker: str) -> str:
 
 
 async def add(ticker: str) -> str:
-    raise NotImplementedError  # ROADMAP M1: port `add` (Postgres INSERT)
+    # Port of "Execute a SQL query" + "Add Responder". n8n used
+    # UPPER('...') string interpolation; here it's a bound param + .upper().
+    # ON CONFLICT DO NOTHING, and the reply is "Added" either way — same as
+    # the n8n branch (the responder fires regardless of rows affected).
+    ticker = ticker.upper()
+    await db.get_pool().execute(
+        "INSERT INTO watchlist (ticker) VALUES ($1) ON CONFLICT (ticker) DO NOTHING",
+        ticker,
+    )
+    return f"Added {ticker} to your watchlist."
 
 
 async def remove(ticker: str) -> str:

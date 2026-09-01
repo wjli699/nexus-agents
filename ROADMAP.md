@@ -18,7 +18,7 @@ n8n behavior at each step.
       validation done; per-action executors stubbed (next items)
 - [x] Port classify prompt from n8n's HTTP Request node
 - [x] Port `check` logic (Alpha Vantage call + formatting)
-- [ ] Port `add` logic (Postgres INSERT, UPPER() normalization)
+- [x] Port `add` logic (Postgres INSERT, UPPER() normalization)
 - [ ] Port `remove` logic (Postgres DELETE...RETURNING, the
       optional-chaining fix for "wasn't on your watchlist")
 - [ ] Port `list` logic (Postgres SELECT + empty-list handling)
