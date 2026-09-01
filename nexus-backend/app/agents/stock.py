@@ -11,7 +11,7 @@ Routing, validation, and the unknown-command fallback are done here.
 
 from __future__ import annotations
 
-from .. import llm
+from .. import llm, market
 
 _USAGE = "Try: check AAPL / add AAPL / remove AAPL / list"
 
@@ -39,7 +39,15 @@ async def handle(message: str) -> str:
 
 
 async def check(ticker: str) -> str:
-    raise NotImplementedError  # ROADMAP M1: port `check` (Alpha Vantage)
+    # Port of "HTTP Request1" + "Code in JavaScript". Values are the raw
+    # Alpha Vantage strings — no rounding, matching the n8n node.
+    quote = await market.global_quote(ticker)
+    if not quote:
+        return "Couldn't find data for that ticker."
+    return (
+        f"{quote['01. symbol']}: ${quote['05. price']} "
+        f"({quote['10. change percent']})"
+    )
 
 
 async def add(ticker: str) -> str:

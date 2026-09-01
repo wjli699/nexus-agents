@@ -17,7 +17,7 @@ n8n behavior at each step.
       route + execute, see api-spec-v0.1.md) — orchestration + routing +
       validation done; per-action executors stubbed (next items)
 - [x] Port classify prompt from n8n's HTTP Request node
-- [ ] Port `check` logic (Alpha Vantage call + formatting)
+- [x] Port `check` logic (Alpha Vantage call + formatting)
 - [ ] Port `add` logic (Postgres INSERT, UPPER() normalization)
 - [ ] Port `remove` logic (Postgres DELETE...RETURNING, the
       optional-chaining fix for "wasn't on your watchlist")

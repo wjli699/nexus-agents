@@ -21,12 +21,39 @@ def _stub_classify(monkeypatch, action, ticker):
 
 @pytest.mark.parametrize(
     "action, ticker",
-    [("check", "AAPL"), ("add", "TSLA"), ("remove", "NVDA"), ("list", None)],
+    [("add", "TSLA"), ("remove", "NVDA"), ("list", None)],
 )
-def test_valid_action_routes_to_executor(monkeypatch, action, ticker):
+def test_unported_action_routes_to_stub(monkeypatch, action, ticker):
     _stub_classify(monkeypatch, action, ticker)
     resp = client.post("/agents/stock/handle", json={"message": "..."})
     assert resp.status_code == 501  # executor stubbed, but routing reached it
+
+
+def test_check_returns_formatted_quote(monkeypatch):
+    _stub_classify(monkeypatch, "check", "AAPL")
+
+    async def fake_quote(ticker: str) -> dict:
+        return {
+            "01. symbol": "AAPL",
+            "05. price": "227.1400",
+            "10. change percent": "0.7965%",
+        }
+
+    monkeypatch.setattr("app.agents.stock.market.global_quote", fake_quote)
+    resp = client.post("/agents/stock/handle", json={"message": "price of AAPL"})
+    assert resp.status_code == 200
+    assert resp.json()["text"] == "AAPL: $227.1400 (0.7965%)"
+
+
+def test_check_unknown_ticker(monkeypatch):
+    _stub_classify(monkeypatch, "check", "ZZZZ")
+
+    async def fake_quote(ticker: str) -> dict:
+        return {}
+
+    monkeypatch.setattr("app.agents.stock.market.global_quote", fake_quote)
+    resp = client.post("/agents/stock/handle", json={"message": "price of ZZZZ"})
+    assert resp.json()["text"] == "Couldn't find data for that ticker."
 
 
 def test_unknown_action_returns_usage_text(monkeypatch):
