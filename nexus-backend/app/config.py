@@ -30,10 +30,13 @@ class Settings(BaseSettings):
     # --- External APIs ---
     alpha_vantage_api_key: str = ""
 
-    # --- Heartbeat (ROADMAP Milestone 2) ---
-    # A watchlist ticker moving at least this many percent (up or down) on the
-    # day triggers an alert. Deterministic — no LLM decides whether to alert.
+    # --- Heartbeats ---
+    # Stock (M2): a watchlist ticker moving at least this many percent (up or
+    # down) on the day triggers an alert. Deterministic — no LLM.
     heartbeat_move_threshold_pct: float = 5.0
+    # Family (M3): the morning digest covers events/tasks from today through
+    # today + this many days (plus any overdue tasks). 1 = today + tomorrow.
+    family_digest_lookahead_days: int = 1
 
     @property
     def database_url(self) -> str:

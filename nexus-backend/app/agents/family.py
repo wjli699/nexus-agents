@@ -15,6 +15,7 @@ import calendar
 from datetime import date, time, timedelta
 
 from .. import db, llm, tasks
+from ..config import get_settings
 
 _USAGE = (
     "Family — events: add / list / remove / next.  tasks: add / list / done / remove.\n"
@@ -217,6 +218,53 @@ async def _upcoming(limit: int = 20) -> list:
             out.append((occ, r))
     out.sort(key=lambda pair: pair[0])
     return out[:limit]
+
+
+# --- heartbeat: morning digest (ROADMAP M3) ---------------------------
+
+
+async def heartbeat(lookahead_days: int | None = None) -> dict:
+    """Digest of events + tasks from today through today+lookahead (plus
+    overdue tasks). {"alert": False} when there's nothing. Deterministic."""
+    days = (
+        lookahead_days
+        if lookahead_days is not None
+        else get_settings().family_digest_lookahead_days
+    )
+    today = date.today()
+    horizon = today + timedelta(days=days)
+
+    events = [(occ, r) for occ, r in await _upcoming(limit=100) if occ <= horizon]
+    due = await tasks.open_due("family", horizon)
+
+    if not events and not due:
+        return {"alert": False}
+
+    lines: list[str] = []
+    last_day = None
+    for occ, r in events:
+        if occ != last_day:
+            lines.append(_day_label(occ, today))
+            last_day = occ
+        tm = f" {r['start_time'].strftime('%H:%M')}" if r["start_time"] else ""
+        lines.append(f"  {r['title']}{tm}")
+
+    if due:
+        lines.append("Tasks due:")
+        for t in due:
+            when = "overdue" if t["due_date"] < today else _day_label(t["due_date"], today).lower()
+            lines.append(f"  #{t['id']} {t['title']} ({when})")
+
+    return {"alert": True, "text": "\n".join(lines)}
+
+
+def _day_label(d: date, today: date) -> str:
+    delta = (d - today).days
+    if delta == 0:
+        return "Today"
+    if delta == 1:
+        return "Tomorrow"
+    return d.strftime("%A") if delta < 7 else _fmt_date(d, today)
 
 
 # --- date helpers ------------------------------------------------------

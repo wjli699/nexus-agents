@@ -1,5 +1,5 @@
 {
-  "name": "Stock Agent (slim - calls nexus-backend)",
+  "name": "Nexus Agent (slim - Telegram to /handle)",
   "nodes": [
     {
       "parameters": { "updates": ["message"], "additionalFields": {} },
@@ -15,7 +15,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://nexus-backend:8000/agents/stock/handle",
+        "url": "http://nexus-backend:8000/handle",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.message.text) }}\n}",

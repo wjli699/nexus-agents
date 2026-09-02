@@ -65,17 +65,29 @@ The point of the pattern is no noise when nothing happens. Confirm it:
 3. Leave the real workflow published for a full trading day and confirm
    you only get a message on a day something actually moved ≥5%.
 
+## Family digest (M3) — same pattern, second use
+
+`workflows/family-heartbeat.json`: `Schedule (daily 07:00) → POST
+/agents/family/heartbeat → IF alert==true → Send digest`.
+
+`POST /agents/family/heartbeat` returns `{"alert": false}` unless there's
+an event today (through `FAMILY_DIGEST_LOOKAHEAD_DAYS`, default +1 day) or
+a task due/overdue, in which case `{"alert": true, "text": <digest>}`.
+Optional `{"lookahead_days": N}` body override. Set the chat ID in **Send
+digest** the same way as the stock one.
+
+Verify the quiet path: on a day with nothing scheduled and no tasks due,
+`curl -s -X POST localhost:8000/agents/family/heartbeat` → `{"alert":false}`.
+
 ## Reusing this for other agents
 
-Every future agent gets the same shape — only the endpoint and schedule
-change:
+Every agent gets the same shape — only the endpoint and schedule change:
 
-| Agent | Endpoint | Cron | Notable-when |
-|---|---|---|---|
-| stock | `/agents/stock/heartbeat` | midday weekdays | ticker moved ≥5% |
-| family | `/agents/family/heartbeat` | daily am | date within N days |
-| task | `/agents/task/heartbeat` | daily | item stale N days |
-| home-project | `/agents/home-project/heartbeat` | weekly | (check-in prompt) |
+| Agent | Endpoint | Cron | Notable-when | Status |
+|---|---|---|---|---|
+| stock | `/agents/stock/heartbeat` | midday weekdays | ticker moved ≥5% | ✅ M2 |
+| family | `/agents/family/heartbeat` | daily 07:00 | event today / task due | ✅ M3 |
+| project | `/agents/project/heartbeat` | weekly | stale, or cadence hit | M4 |
 
 Each `heartbeat` endpoint owns its own "is this worth a message?" rule and
 returns the same `{alert, text}` contract, so the n8n side is copy-paste:

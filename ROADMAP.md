@@ -83,10 +83,13 @@ central hub for family events + family to-dos. Manual entry only.
       then: events `add` / `list` / `remove` / `next`; tasks via `tasks.py`.
       Also `POST /handle` (top-level): router.classify → dispatch → reply,
       so n8n is one call.
-- [ ] `/agents/family/heartbeat` — morning digest: today's events + tasks
-      due/overdue. Quiet if nothing.
-- [ ] n8n: router workflow (Trigger → /router/classify → HTTP to the
-      chosen agent → Reply) + family heartbeat Cron workflow
+- [x] `/agents/family/heartbeat` — morning digest: events through
+      today+`FAMILY_DIGEST_LOOKAHEAD_DAYS` + tasks due/overdue. Quiet if
+      nothing. Deterministic.
+- [x] n8n workflows: `agent-slim.json` (Trigger → POST /handle → reply —
+      routing is server-side now, so n8n stays one call) + `family-
+      heartbeat.json` (Cron → digest). Stock command workflow re-pointed
+      from `/agents/stock/handle` to `/handle`.
 
 ## Milestone 3.5: Calendar & email import (family)
 - [ ] `/agents/family/import` — accept normalized items, dedupe/upsert by

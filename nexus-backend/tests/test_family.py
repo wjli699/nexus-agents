@@ -110,3 +110,46 @@ def test_event_remove_miss(monkeypatch, fake_pool):
 def test_unrecognized_returns_usage(monkeypatch):
     _stub_classify(monkeypatch, {"kind": None, "action": None})
     assert _run(family.handle("hello")).startswith("Family —")
+
+
+# --- heartbeat -------------------------------------------------------
+
+
+def test_heartbeat_quiet_when_nothing(fake_pool):
+    fake_pool(fetch_rows=[])  # both _upcoming and open_due see no rows
+    assert _run(family.heartbeat(lookahead_days=1)) == {"alert": False}
+
+
+def test_heartbeat_lists_todays_event(monkeypatch, fake_pool):
+    from datetime import date as _d
+
+    today = _d.today()
+    # FakePool returns the same fetch_rows for every fetch() call; open_due
+    # filters happen in SQL (stubbed away), so give it only the event rows
+    # and stub tasks.open_due to empty.
+    fake_pool(fetch_rows=[
+        {"id": 1, "title": "Dentist", "event_date": today,
+         "start_time": None, "recurrence": None},
+    ])
+
+    async def no_tasks(domain, through):
+        return []
+
+    monkeypatch.setattr(family.tasks, "open_due", no_tasks)
+    out = _run(family.heartbeat(lookahead_days=0))
+    assert out["alert"] is True
+    assert "Today" in out["text"] and "Dentist" in out["text"]
+
+
+def test_heartbeat_includes_overdue_task(monkeypatch, fake_pool):
+    from datetime import date as _d, timedelta as _td
+
+    fake_pool(fetch_rows=[])  # no events
+
+    async def overdue(domain, through):
+        return [{"id": 3, "title": "pay bill", "due_date": _d.today() - _td(days=2)}]
+
+    monkeypatch.setattr(family.tasks, "open_due", overdue)
+    out = _run(family.heartbeat(lookahead_days=1))
+    assert out["alert"] is True
+    assert "#3 pay bill (overdue)" in out["text"]
