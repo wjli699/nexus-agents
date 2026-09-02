@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # --- External APIs ---
     alpha_vantage_api_key: str = ""
 
+    # --- Heartbeat (ROADMAP Milestone 2) ---
+    # A watchlist ticker moving at least this many percent (up or down) on the
+    # day triggers an alert. Deterministic — no LLM decides whether to alert.
+    heartbeat_move_threshold_pct: float = 5.0
+
     @property
     def database_url(self) -> str:
         return (

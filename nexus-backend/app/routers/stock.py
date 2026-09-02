@@ -1,13 +1,14 @@
 """Stock agent HTTP surface.
 
-Per api-spec-v0.1.md section 2, n8n calls one endpoint — /agents/stock/handle
-— which does classify + route + execute internally (app/agents/stock.py).
-
-Per-action executors are still stubbed; calling into an un-ported action
-surfaces as 501 rather than a 500.
+- POST /agents/stock/handle    — command path: classify + route + execute
+                                  (api-spec-v0.1.md section 2)
+- POST /agents/stock/heartbeat — proactive path: scan watchlist for big
+                                  daily moves (api-spec-v0.1.md 1.6)
 """
 
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..agents import stock as stock_agent
@@ -23,9 +24,21 @@ class TextResponse(BaseModel):
     text: str
 
 
+class HeartbeatRequest(BaseModel):
+    threshold_pct: Optional[float] = None  # override config default; optional
+
+
+class HeartbeatResponse(BaseModel):
+    alert: bool
+    text: Optional[str] = None
+
+
 @router.post("/handle", response_model=TextResponse)
 async def handle(req: HandleRequest) -> TextResponse:
-    try:
-        return TextResponse(text=await stock_agent.handle(req.message))
-    except NotImplementedError:
-        raise HTTPException(status_code=501, detail="action not yet ported — ROADMAP M1")
+    return TextResponse(text=await stock_agent.handle(req.message))
+
+
+@router.post("/heartbeat", response_model=HeartbeatResponse)
+async def heartbeat(req: Optional[HeartbeatRequest] = None) -> HeartbeatResponse:
+    threshold = req.threshold_pct if req else None
+    return HeartbeatResponse(**await stock_agent.heartbeat(threshold))

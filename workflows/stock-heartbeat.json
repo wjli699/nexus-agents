@@ -1,0 +1,81 @@
+{
+  "name": "Stock Heartbeat (Cron - proactive alerts)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "30 12 * * 1-5" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "cc000001-0000-4000-8000-000000000001",
+      "name": "Schedule (weekdays 12:30, tz from GENERIC_TIMEZONE)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://nexus-backend:8000/agents/stock/heartbeat",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [260, 0],
+      "id": "cc000002-0000-4000-8000-000000000002",
+      "name": "Call heartbeat"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cc-cond-1",
+              "leftValue": "={{ $json.alert }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0],
+      "id": "cc000003-0000-4000-8000-000000000003",
+      "name": "alert == true?"
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [720, -80],
+      "id": "cc000004-0000-4000-8000-000000000004",
+      "name": "Send alert",
+      "webhookId": "cc000004-web0-4000-8000-000000000004",
+      "credentials": {
+        "telegramApi": { "id": "3MBSKy4Iu47Ic8Rk", "name": "Telegram account" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule (weekdays 12:30, tz from GENERIC_TIMEZONE)": {
+      "main": [[{ "node": "Call heartbeat", "type": "main", "index": 0 }]]
+    },
+    "Call heartbeat": {
+      "main": [[{ "node": "alert == true?", "type": "main", "index": 0 }]]
+    },
+    "alert == true?": {
+      "main": [[{ "node": "Send alert", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
