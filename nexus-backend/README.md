@@ -9,6 +9,23 @@ check it before adding a route.
 
 ## Current state
 
+`POST /handle` — **what n8n calls.** Runs the top-level router, dispatches
+to the chosen agent's `handle()`, returns `{text}`. n8n stays one HTTP call.
+
+`POST /router/classify` — just the routing step (`stock` | `family` |
+`unknown`), exposed for debugging. Local Ollama, one call.
+
+`POST /agents/family/handle` — family hub: sub-classifies `event` vs
+`task`, then events `add`/`list`/`remove`/`next` (table `family_events`) or
+tasks via the shared `app/tasks.py` (`domain='family'`). Manual entry only
+in M3; calendar/email import is M3.5. Recurring events (yearly birthdays
+etc.) roll their next occurrence forward.
+
+Dates: the local model extracts the date *phrase* verbatim
+(`"by friday"`, `"end of next week"`); `app/dates.py` resolves it
+deterministically. Local models get weekday math wrong, so it never does
+the arithmetic. Unresolvable phrase → the agent asks for `YYYY-MM-DD`.
+
 `POST /agents/stock/handle` — command path: classify → route → dispatch to
 `check` (Alpha Vantage GLOBAL_QUOTE) / `add` (INSERT) / `remove`
 (DELETE … RETURNING) / `list` (SELECT). n8n is a 3-node workflow

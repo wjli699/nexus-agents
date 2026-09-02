@@ -100,14 +100,3 @@ def test_missing_ticker_prompts_for_one(monkeypatch):
     resp = client.post("/agents/stock/handle", json={"message": "what's the price"})
     assert resp.status_code == 200
     assert "ticker" in resp.json()["text"].lower()
-
-
-def test_classify_parse_is_defensive_about_thinking_field():
-    from app.llm import _parse
-
-    # JOURNAL.md #10: JSON lands in `thinking`, `response` empty.
-    out = _parse({"response": "", "thinking": '{"action": "check", "ticker": "aapl"}'})
-    assert out == {"action": "check", "ticker": "AAPL"}
-
-    # Garbage -> unknown, never raises.
-    assert _parse({"response": "no json here"}) == {"action": "unknown", "ticker": None}

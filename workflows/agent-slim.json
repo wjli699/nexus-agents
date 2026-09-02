@@ -1,5 +1,5 @@
 {
-  "name": "Stock Agent (slim - calls nexus-backend)",
+  "name": "Nexus Agent (slim - Telegram to /handle)",
   "nodes": [
     {
       "parameters": { "updates": ["message"], "additionalFields": {} },
@@ -9,13 +9,13 @@
       "id": "aa000001-0000-4000-8000-000000000001",
       "name": "Telegram Trigger",
       "credentials": {
-        "telegramApi": { "id": "NqjrJbRKP5GE9pf9", "name": "Telegram account" }
+        "telegramApi": { "id": "3MBSKy4Iu47Ic8Rk", "name": "Telegram account" }
       }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://nexus-backend:8000/agents/stock/handle",
+        "url": "http://nexus-backend:8000/handle",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.message.text) }}\n}",
@@ -39,7 +39,7 @@
       "id": "aa000003-0000-4000-8000-000000000003",
       "name": "Send reply",
       "credentials": {
-        "telegramApi": { "id": "NqjrJbRKP5GE9pf9", "name": "Telegram account" }
+        "telegramApi": { "id": "3MBSKy4Iu47Ic8Rk", "name": "Telegram account" }
       }
     }
   ],

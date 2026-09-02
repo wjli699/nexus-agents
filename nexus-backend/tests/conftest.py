@@ -1,17 +1,25 @@
 """Shared test helpers.
 
-`fake_pool` stands in for the asyncpg pool so DB-backed executors can be
-unit-tested without Postgres. Integration against a real DB is the
-"side-by-side test" ROADMAP M1 item.
+`fake_pool` stands in for the asyncpg pool so DB-backed code can be
+unit-tested without Postgres. It patches `app.db.get_pool` globally, so it
+covers every module that calls `db.get_pool()` (stock, tasks, family, ...).
 """
 
 import pytest
 
 
 class FakePool:
-    def __init__(self, *, fetch_rows=None, delete_returns=None):
+    def __init__(
+        self,
+        *,
+        fetch_rows=None,
+        fetchval=None,
+        fetchval_queue=None,
+        delete_returns=None,  # back-compat alias for fetchval
+    ):
         self._fetch_rows = fetch_rows or []
-        self._delete_returns = delete_returns
+        self._fetchval_queue = list(fetchval_queue) if fetchval_queue is not None else None
+        self._fetchval = fetchval if fetchval is not None else delete_returns
         self.calls = []  # list of (method, query, args)
 
     async def execute(self, query, *args):
@@ -24,14 +32,16 @@ class FakePool:
 
     async def fetchval(self, query, *args):
         self.calls.append(("fetchval", query, args))
-        return self._delete_returns
+        if self._fetchval_queue is not None:
+            return self._fetchval_queue.pop(0) if self._fetchval_queue else None
+        return self._fetchval
 
 
 @pytest.fixture
 def fake_pool(monkeypatch):
     def _install(**kwargs):
         pool = FakePool(**kwargs)
-        monkeypatch.setattr("app.agents.stock.db.get_pool", lambda: pool)
+        monkeypatch.setattr("app.db.get_pool", lambda: pool)
         return pool
 
     return _install

@@ -88,9 +88,10 @@ nexus/
 ├── sql/
 │   └── init.sql                       watchlist table + future agent tables
 ├── workflows/
-│   ├── workflows.json                 exported n8n workflow (see docs/EXPORTING.md)
-│   ├── stock-agent-slim.json          3-node workflow that calls nexus-backend
-│   └── stock-heartbeat.json           Cron → heartbeat endpoint → alert if notable
+│   ├── workflows.json                 exported live n8n workflows (see docs/EXPORTING.md)
+│   ├── agent-slim.json                Telegram → POST /handle → reply (all agents)
+│   ├── stock-heartbeat.json           Cron → stock heartbeat → alert if a ticker moved
+│   └── family-heartbeat.json          Cron → family heartbeat → morning digest if any
 ├── scripts/
 │   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/

@@ -1,6 +1,11 @@
-"""Classify prompt/parse port — checked against workflows/workflows.json."""
+"""llm.py — JSON extraction + the stock command classifier."""
 
-from app.llm import CLASSIFY_PROMPT, _parse
+import asyncio
+
+import pytest
+
+from app import llm
+from app.llm import CLASSIFY_PROMPT, _extract_json
 
 
 def test_prompt_matches_n8n_node_verbatim():
@@ -12,25 +17,38 @@ def test_prompt_matches_n8n_node_verbatim():
     )
 
 
-def test_parse_prefers_response_field():
-    out = _parse({"response": '{"action": "add", "ticker": "tsla"}', "thinking": ""})
-    assert out == {"action": "add", "ticker": "TSLA"}
+def test_extract_prefers_response_over_thinking():
+    assert _extract_json({"response": '{"a": 1}', "thinking": '{"a": 2}'}) == {"a": 1}
 
 
-def test_parse_falls_back_to_thinking_field():
+def test_extract_falls_back_to_thinking_field():
     # JOURNAL.md #10
-    out = _parse({"response": "  ", "thinking": '{"action": "list", "ticker": null}'})
-    assert out == {"action": "list", "ticker": None}
+    assert _extract_json({"response": "  ", "thinking": '{"a": 2}'}) == {"a": 2}
 
 
-def test_parse_extracts_json_from_surrounding_text():
-    out = _parse({"response": 'sure: {"action": "check", "ticker": "NVDA"} done'})
-    assert out == {"action": "check", "ticker": "NVDA"}
+def test_extract_from_surrounding_prose():
+    assert _extract_json({"response": 'sure: {"x": "y"} done'}) == {"x": "y"}
 
 
-def test_parse_unknown_on_garbage():
-    assert _parse({"response": "not json"}) == {"action": "unknown", "ticker": None}
-    assert _parse({"response": '{"action": "buy", "ticker": 5}'}) == {
-        "action": "unknown",
-        "ticker": None,
-    }
+def test_extract_none_on_garbage_or_non_object():
+    assert _extract_json({"response": "not json"}) is None
+    assert _extract_json({"response": "[1, 2, 3]"}) is None
+    assert _extract_json({"response": ""}) is None
+
+
+@pytest.mark.parametrize(
+    "parsed, expected",
+    [
+        ({"action": "add", "ticker": "tsla"}, {"action": "add", "ticker": "TSLA"}),
+        ({"action": "list", "ticker": None}, {"action": "list", "ticker": None}),
+        ({"action": "buy", "ticker": 5}, {"action": "unknown", "ticker": None}),
+        ({}, {"action": "unknown", "ticker": None}),
+        (None, {"action": "unknown", "ticker": None}),
+    ],
+)
+def test_classify_normalizes(monkeypatch, parsed, expected):
+    async def fake(prompt):
+        return parsed
+
+    monkeypatch.setattr(llm, "complete_json", fake)
+    assert asyncio.run(llm.classify("whatever")) == expected
