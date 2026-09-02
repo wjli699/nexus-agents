@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from . import db
-from .routers import root, stock
+from .routers import family, root, stock
 
 
 @asynccontextmanager
@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="nexus-backend", version="0.1.0", lifespan=lifespan)
 app.include_router(root.router)
 app.include_router(stock.router)
+app.include_router(family.router)
 
 
 @app.get("/health")

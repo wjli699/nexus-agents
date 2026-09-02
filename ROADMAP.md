@@ -79,8 +79,10 @@ central hub for family events + family to-dos. Manual entry only.
       Router picks the agent only; each `/handle` sub-classifies.
 - [ ] Shared `app/tasks.py` — `add` / `list` / `done` / `remove`, scoped
       by `domain`; each agent delegates its task subcommands here
-- [ ] Implement `/agents/family/handle` — sub-classify `event` vs `task`,
-      then: events `add` / `list` / `remove` / `next`; tasks via `tasks.py`
+- [x] Implement `/agents/family/handle` — sub-classify `event` vs `task`,
+      then: events `add` / `list` / `remove` / `next`; tasks via `tasks.py`.
+      Also `POST /handle` (top-level): router.classify → dispatch → reply,
+      so n8n is one call.
 - [ ] `/agents/family/heartbeat` — morning digest: today's events + tasks
       due/overdue. Quiet if nothing.
 - [ ] n8n: router workflow (Trigger → /router/classify → HTTP to the

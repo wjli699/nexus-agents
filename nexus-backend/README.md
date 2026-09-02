@@ -9,9 +9,17 @@ check it before adding a route.
 
 ## Current state
 
-`POST /router/classify` — top-level dispatch: which agent owns this message
-(`stock` | `family` | `unknown`). Local Ollama, one call. n8n calls this
-first, then forwards the raw message to the chosen agent's `/handle`.
+`POST /handle` — **what n8n calls.** Runs the top-level router, dispatches
+to the chosen agent's `handle()`, returns `{text}`. n8n stays one HTTP call.
+
+`POST /router/classify` — just the routing step (`stock` | `family` |
+`unknown`), exposed for debugging. Local Ollama, one call.
+
+`POST /agents/family/handle` — family hub: sub-classifies `event` vs
+`task`, then events `add`/`list`/`remove`/`next` (table `family_events`) or
+tasks via the shared `app/tasks.py` (`domain='family'`). Manual entry only
+in M3; calendar/email import is M3.5. Recurring events (yearly birthdays
+etc.) roll their next occurrence forward.
 
 `POST /agents/stock/handle` — command path: classify → route → dispatch to
 `check` (Alpha Vantage GLOBAL_QUOTE) / `add` (INSERT) / `remove`
