@@ -1,8 +1,7 @@
-"""nexus-backend — FastAPI service that will hold the agent logic currently
-living inside n8n nodes (see api-spec-v0.1.md, ROADMAP.md Milestone 1).
+"""nexus-backend — FastAPI service holding the agent logic (was n8n nodes).
 
-This is the scaffold only. Endpoints are stubbed; each ROADMAP checklist
-item fills one in as a direct port of the corresponding n8n node.
+See api-spec-v0.1.md and ROADMAP.md. n8n is a thin trigger/routing layer;
+everything real (classify prompts, SQL, external API calls) lives here.
 """
 
 from contextlib import asynccontextmanager
@@ -10,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from . import db
-from .routers import stock
+from .routers import root, stock
 
 
 @asynccontextmanager
@@ -23,6 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="nexus-backend", version="0.1.0", lifespan=lifespan)
+app.include_router(root.router)
 app.include_router(stock.router)
 
 

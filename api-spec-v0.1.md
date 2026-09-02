@@ -15,19 +15,19 @@ LLM endpoint (local Ollama or Claude API) + Alpha Vantage.
 
 ---
 
-## 0. Router (build last, once 2+ agents exist)
-
-Not needed for v0.1 with only the stock agent live — but specced now so
-the shape is known in advance.
+## 0. Router (built in Milestone 3, once the family agent exists)
 
 ```
 POST /router/classify
-  body: { "message": "what is AAPL trading at" }
-  returns: { "agent": "stock", "raw_action": "check", "ticker": "AAPL" }
+  body:    { "message": "when is mom's birthday" }
+  returns: { "agent": "stock" | "family" | "unknown" }
 ```
-Wraps the LLM classification call. Once agent #2 exists, this becomes the
-single entry point n8n calls first, before dispatching to a per-agent
-endpoint below.
+Local Ollama, one classification call. The router only picks the agent — it
+does NOT sub-classify (each agent's `/handle` does its own action parsing).
+This keeps the router decoupled from every agent's internal command set.
+
+n8n calls this first, then dispatches the raw message to the chosen agent's
+`/handle`. `unknown` → a "here's what I can do" reply.
 
 ---
 
@@ -136,4 +136,4 @@ POST /agents/news/heartbeat      — scheduled digest delivery
 - [x] `/agents/stock/handle` (combined) — classify + route + check/add/remove/list
 - [x] `/agents/stock/heartbeat` — deterministic threshold scan, no LLM
 - [x] n8n workflow simplified to Trigger → HTTP Request → Telegram reply
-- [ ] `/router/classify` (only once agent #2 starts)
+- [x] `/router/classify` — agent dispatch (stock | family), local Ollama

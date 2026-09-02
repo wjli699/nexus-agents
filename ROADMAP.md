@@ -74,8 +74,9 @@ central hub for family events + family to-dos. Manual entry only.
 - [ ] Design schema: `family_events` (calendar shape) + shared `tasks`
       table (`domain`, `title`, `status`, `due_date?`, `notes`,
       `project_id?`) — added to `sql/init.sql`
-- [ ] Implement `/router/classify` — top-level agent dispatch (stock |
-      family), local Ollama, called by n8n before the per-agent endpoint
+- [x] Implement `/router/classify` — top-level agent dispatch (stock |
+      family), local Ollama, called by n8n before the per-agent endpoint.
+      Router picks the agent only; each `/handle` sub-classifies.
 - [ ] Shared `app/tasks.py` — `add` / `list` / `done` / `remove`, scoped
       by `domain`; each agent delegates its task subcommands here
 - [ ] Implement `/agents/family/handle` — sub-classify `event` vs `task`,

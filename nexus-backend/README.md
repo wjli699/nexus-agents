@@ -9,6 +9,10 @@ check it before adding a route.
 
 ## Current state
 
+`POST /router/classify` — top-level dispatch: which agent owns this message
+(`stock` | `family` | `unknown`). Local Ollama, one call. n8n calls this
+first, then forwards the raw message to the chosen agent's `/handle`.
+
 `POST /agents/stock/handle` — command path: classify → route → dispatch to
 `check` (Alpha Vantage GLOBAL_QUOTE) / `add` (INSERT) / `remove`
 (DELETE … RETURNING) / `list` (SELECT). n8n is a 3-node workflow
