@@ -1,5 +1,11 @@
 # Milestones & Roadmap
 
+> For the current, authoritative plan from Milestone 3 onward — including the
+> 2026-09-01 restructure (tasks became a shared capability, not an agent;
+> "Home Project Tracker" became a general Project agent) — see
+> [`../ROADMAP.md`](../ROADMAP.md). The phase notes below are the original
+> framing and design rationale, kept for context.
+
 ## Phase 0 — Infrastructure (done)
 - [x] Tailscale mesh across all devices (mini PC, MacBook Pro, MacBook Air)
 - [x] n8n running on mini PC via Docker Compose
