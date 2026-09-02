@@ -68,7 +68,7 @@ def test_task_list_delegates(monkeypatch, fake_pool):
 def test_event_add_recurring_echoes_next_occurrence(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, {
         "kind": "event", "action": "add", "title": "Mom's birthday",
-        "date": "1980-03-15", "recurrence": "yearly", "time": None, "id": None,
+        "date_phrase": "1980-03-15", "recurrence": "yearly", "time": None, "id": None,
     })
     fake_pool(fetchval=2)
     out = _run(family.handle("add mom's birthday 1980-03-15 yearly"))
@@ -77,8 +77,17 @@ def test_event_add_recurring_echoes_next_occurrence(monkeypatch, fake_pool):
 
 
 def test_event_add_needs_title_and_date(monkeypatch):
-    _stub_classify(monkeypatch, {"kind": "event", "action": "add", "title": "Dentist", "date": None})
+    _stub_classify(monkeypatch, {"kind": "event", "action": "add", "title": "Dentist"})
     assert "Need a title and a date" in _run(family.handle("add dentist appointment"))
+
+
+def test_unresolvable_date_phrase_is_reported(monkeypatch):
+    _stub_classify(monkeypatch, {
+        "kind": "task", "action": "add", "title": "do thing",
+        "date_phrase": "sometime-ish whenever",
+    })
+    out = _run(family.handle("add task do thing sometime-ish whenever"))
+    assert 'couldn\'t read the date "sometime-ish whenever"' in out
 
 
 def test_event_list_sorts_by_next_occurrence(monkeypatch, fake_pool):

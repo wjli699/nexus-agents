@@ -14,7 +14,7 @@ from __future__ import annotations
 import calendar
 from datetime import date, time, timedelta
 
-from .. import db, llm, tasks
+from .. import db, dates, llm, tasks
 from ..config import get_settings
 
 _USAGE = (
@@ -27,16 +27,21 @@ _TASK_ACTIONS = {"add", "list", "done", "remove"}
 _RECURRENCES = {"yearly", "monthly", "weekly"}
 
 CLASSIFY_PROMPT = (
-    "You manage a family calendar and to-do list. Today is {today} ({weekday}).\n"
+    "You manage a family calendar and to-do list.\n"
     "Classify the message as JSON only, no other text:\n"
     '{{"kind":"event|task","action":"add|list|remove|next|done",'
-    '"title":str|null,"date":"YYYY-MM-DD"|null,"time":"HH:MM"|null,'
+    '"title":str|null,"date_phrase":str|null,"time":"HH:MM"|null,'
     '"recurrence":"yearly|monthly|weekly"|null,"id":int|null}}\n'
     "- kind event = calendar items (birthday, appointment, anniversary); "
     "actions add, list, remove, next\n"
     "- kind task = to-dos / things to do; actions add, list, done, remove\n"
-    "- resolve relative dates (tomorrow, next friday) to an absolute date from today\n"
+    '- date_phrase = the date words exactly as written ("friday", "march 15", '
+    '"end of next week", "2026-10-02"). Do NOT convert to a number. null if none.\n'
+    '- title = what the event/task is, with the date words removed.\n'
     '- remove and done need the item number in "id"\n'
+    'Example: "add anniversary dinner october 2" -> '
+    '{{"kind":"event","action":"add","title":"anniversary dinner",'
+    '"date_phrase":"october 2","time":null,"recurrence":null,"id":null}}\n'
     "Message: {message}"
 )
 
@@ -54,14 +59,7 @@ async def handle(message: str) -> str:
 
 
 async def _classify(message: str) -> dict:
-    today = date.today()
-    parsed = await llm.complete_json(
-        CLASSIFY_PROMPT.format(
-            today=today.isoformat(),
-            weekday=today.strftime("%A"),
-            message=message,
-        )
-    ) or {}
+    parsed = await llm.complete_json(CLASSIFY_PROMPT.format(message=message)) or {}
 
     kind = parsed.get("kind")
     if kind not in {"event", "task"}:
@@ -70,11 +68,13 @@ async def _classify(message: str) -> dict:
     action = parsed.get("action") if parsed.get("action") in valid else None
     recurrence = parsed.get("recurrence")
 
+    date_phrase = _clean_str(parsed.get("date_phrase"))
     return {
         "kind": kind,
         "action": action,
         "title": _clean_str(parsed.get("title")),
-        "date": _parse_date(parsed.get("date")),
+        "date_phrase": date_phrase,
+        "date": dates.resolve(date_phrase, date.today()) if date_phrase else None,
         "time": _parse_time(parsed.get("time")),
         "recurrence": recurrence if recurrence in _RECURRENCES else None,
         "id": _parse_int(parsed.get("id")),
@@ -85,13 +85,14 @@ def _clean_str(v):
     return (v.strip() or None) if isinstance(v, str) else None
 
 
-def _parse_date(v):
-    if not isinstance(v, str):
-        return None
-    try:
-        return date.fromisoformat(v.strip())
-    except ValueError:
-        return None
+def _unresolved_date(intent: dict) -> str | None:
+    """The model gave a date phrase but app/dates.py couldn't resolve it."""
+    if intent["date_phrase"] and intent["date"] is None:
+        return (
+            f'I couldn\'t read the date "{intent["date_phrase"]}". '
+            "Try an explicit date like 2026-10-02."
+        )
+    return None
 
 
 def _parse_time(v):
@@ -125,6 +126,8 @@ async def _handle_task(intent: dict) -> str:
     if action == "add":
         if not intent["title"]:
             return 'What task? e.g. "add task book dentist"'
+        if bad := _unresolved_date(intent):
+            return bad
         return await tasks.add("family", intent["title"], due_date=intent["date"])
     if action == "done":
         if intent["id"] is None:
@@ -156,6 +159,8 @@ async def _handle_event(intent: dict) -> str:
 
 
 async def _event_add(intent: dict) -> str:
+    if bad := _unresolved_date(intent):
+        return bad
     if not intent["title"] or not intent["date"]:
         return 'Need a title and a date, e.g. "add dentist 2026-10-02 14:00"'
     event_id = await db.get_pool().fetchval(

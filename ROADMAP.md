@@ -33,6 +33,10 @@ Notes:
 - Bound params (`$1`) replace n8n's `UPPER('...')` string interpolation.
 - Unrecognised messages / missing tickers return usage text; the old n8n
   Switch defaulted to `check` and threw on a null ticker.
+- Date resolution is deterministic (`app/dates.py`), not LLM. The local
+  model only extracts the date *phrase* verbatim; Python resolves it. The
+  M3 accuracy probe showed qwen3.5 gets weekday math wrong ("by friday" →
+  Saturday); phrase-extract + deterministic-resolve scored 11/11.
 
 ## Milestone 2: Heartbeat Pattern (borrowed from OpenClaw)
 Goal: proactive alerts, not just reactive commands.
