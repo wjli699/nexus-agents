@@ -1,7 +1,7 @@
 """Family agent — classification, event/task dispatch, date helpers."""
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -92,15 +92,16 @@ def test_unresolvable_date_phrase_is_reported(monkeypatch):
 
 def test_event_list_sorts_by_next_occurrence(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, {"kind": "event", "action": "list"})
+    today = date.today()
     fake_pool(fetch_rows=[
-        {"id": 1, "title": "Anniversary", "event_date": date(2020, 12, 1),
+        {"id": 1, "title": "Anniversary", "event_date": date(today.year - 1, 12, 1),
          "start_time": None, "recurrence": "yearly"},
-        {"id": 2, "title": "Dentist", "event_date": date(2026, 9, 3),
+        {"id": 2, "title": "Dentist", "event_date": today + timedelta(days=3),
          "start_time": None, "recurrence": None},
     ])
     out = _run(family.handle("what's coming up"))
     assert out.startswith("Upcoming events:")
-    # Dentist (Sep 3) before Anniversary (Dec 1)
+    # Dentist (in 3 days) before the yearly Anniversary (rolls to Dec this/next year)
     assert out.index("Dentist") < out.index("Anniversary")
 
 
