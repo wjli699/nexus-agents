@@ -6,6 +6,36 @@ funnel through the same backend endpoint — see `api-spec-v0.1.md` section
 4 — so n8n's job on either path is just "get normalized events, POST
 them."
 
+## Google Cloud Console setup (once, covers both workflows)
+
+This repo has no prior Google OAuth credential — do this once, before
+either workflow's n8n-specific setup below. Covers Google's "Google Auth
+Platform" flow (APIs & Services → OAuth consent screen), current as of
+late 2026 — scopes and test users are configured in separate tabs *after*
+the initial wizard, not as part of it.
+
+1. Create/select a project, then **APIs & Services → Library** → enable
+   the **Google Calendar API** and **Gmail API**.
+2. **APIs & Services → OAuth consent screen** → **Get started**:
+   - **App information** — app name (e.g. "nexus-agents"), your support
+     email.
+   - **Audience** — **External**.
+   - **Contact information** — your email.
+   - **Finish** — agree to the Google API Services User Data Policy →
+     **Create**.
+3. **Data Access** tab → **Add or Remove Scopes** → add:
+   - `.../auth/calendar.readonly`
+   - `.../auth/gmail.readonly`
+   → **Update** → **Save**. (Read-only only — this project never writes
+   to Calendar or sends/modifies mail.)
+4. **Audience** tab → **Test users** → **Add users** → add your own
+   Gmail address (an app in "Testing" status only works for listed
+   test users).
+5. **Clients** tab → **Create OAuth client** → type **Web application**.
+   You'll need the redirect URI n8n shows you when you create the
+   credential in the next section — either open n8n first to grab it, or
+   come back and add it here once you have it.
+
 ## Google Calendar import
 
 ### Shape
@@ -31,19 +61,20 @@ Cron trigger  →  Google Calendar (getAll)  →  Code (normalize)  →  HTTP Re
 
 ### Setup (mini PC)
 
-1. In Google Cloud Console: create/select a project, enable the **Google
-   Calendar API**, and create an OAuth client (Desktop or Web, per n8n's
-   Google OAuth setup instructions) — this repo has no prior Google OAuth
-   credential to point you at, this is the first one.
-2. n8n → **Credentials** → new **Google Calendar OAuth2 API** credential,
-   complete the consent flow.
-3. n8n → **Import from File** → `workflows/family-calendar-import.json`.
-4. Open **Get upcoming events** → select the credential you just made
+Do the [Google Cloud Console setup](#google-cloud-console-setup-once-covers-both-workflows)
+above first if you haven't.
+
+1. n8n → **Credentials** → new **Google Calendar OAuth2 API** credential
+   → paste the Client ID/Secret from the **Clients** tab, copy n8n's
+   redirect URI into that client if you haven't yet → **Connect my
+   account**.
+2. n8n → **Import from File** → `workflows/family-calendar-import.json`.
+3. Open **Get upcoming events** → select the credential you just made
    (the workflow ships a `REPLACE_WITH_YOUR_CREDENTIAL_ID` placeholder,
    same idea as the Telegram chat-id placeholders elsewhere).
-5. Adjust the **Schedule** node's cadence or the 30-day lookahead window
+4. Adjust the **Schedule** node's cadence or the 30-day lookahead window
    (in **Get upcoming events** → Options → `timeMax`) if you want.
-6. **Publish**.
+5. **Publish**.
 
 ### Verify
 
@@ -90,18 +121,20 @@ Cron (n8n, 2h)  →  Gmail (search)  →  HTTP Request          →  IF (candida
 
 ### Setup (mini PC)
 
-1. In Google Cloud Console (the same project as the Calendar import, or a
-   new one): enable the **Gmail API**, add a Gmail OAuth2 credential
-   scoped **read-only** (`gmail.readonly` — this workflow never sends or
-   modifies mail).
-2. n8n → **Credentials** → new **Gmail OAuth2** credential.
-3. n8n → **Import from File** → `workflows/family-gmail-import.json`.
-4. Open **Search household senders** → select the Gmail credential, and
+Uses the same [Google Cloud Console setup](#google-cloud-console-setup-once-covers-both-workflows)
+as the Calendar import — same project, `gmail.readonly` scope already
+added there.
+
+1. n8n → **Credentials** → new **Gmail OAuth2 API** credential (same
+   Client ID/Secret as the Calendar one, or a separate OAuth client if
+   you'd rather keep them apart) → **Connect my account**.
+2. n8n → **Import from File** → `workflows/family-gmail-import.json`.
+3. Open **Search household senders** → select the Gmail credential, and
    replace `REPLACE_WITH_HOUSEHOLD_SENDERS` in the search query with your
    actual allowlist, e.g. `school@example.org OR partner@example.com`.
-5. Open **Send confirm prompt** → set **Chat ID** (same as the other
+4. Open **Send confirm prompt** → set **Chat ID** (same as the other
    workflows).
-6. **Publish**.
+5. **Publish**.
 
 ### Verify
 
