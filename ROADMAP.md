@@ -98,7 +98,7 @@ central hub for family events + family to-dos. Manual entry only.
 ## Milestone 3.5: Calendar & email import (family)
 - [x] `/agents/family/import` — accept normalized items, dedupe/upsert by
       (`source`, `external_id`)
-- [ ] n8n Google Calendar node (OAuth) → scheduled pull of upcoming events
+- [x] n8n Google Calendar node (OAuth) → scheduled pull of upcoming events
       → POST to import endpoint (read-only; GCal is source of truth)
 - [ ] n8n Gmail node → filter household senders → local-LLM extract
       candidate events → Telegram "add this? y/n" confirm loop → import

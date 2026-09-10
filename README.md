@@ -91,7 +91,8 @@ nexus/
 │   ├── workflows.json                 exported live n8n workflows (see docs/EXPORTING.md)
 │   ├── agent-slim.json                Telegram → POST /handle → reply (all agents)
 │   ├── stock-heartbeat.json           Cron → stock heartbeat → alert if a ticker moved
-│   └── family-heartbeat.json          Cron → family heartbeat → morning digest if any
+│   ├── family-heartbeat.json          Cron → family heartbeat → morning digest if any
+│   └── family-calendar-import.json    Cron → Google Calendar → /agents/family/import
 ├── scripts/
 │   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/
@@ -100,7 +101,8 @@ nexus/
     ├── SETUP.md                       clean step-by-step setup from zero
     ├── EXPORTING.md                   how to export/version your n8n workflows
     ├── BACKEND-CUTOVER.md             swapping n8n over to nexus-backend
-    └── HEARTBEAT.md                   the scheduled-but-silent alert pattern
+    ├── HEARTBEAT.md                   the scheduled-but-silent alert pattern
+    └── IMPORT.md                      external import: GCal sync + Gmail confirm loop
 ```
 
 ---
