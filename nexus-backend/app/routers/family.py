@@ -66,3 +66,27 @@ class ImportResponse(BaseModel):
 async def import_(req: ImportRequest) -> ImportResponse:
     items = [item.model_dump() for item in req.items]
     return ImportResponse(**await family_agent.import_events(items))
+
+
+class ExtractRequest(BaseModel):
+    subject: str
+    body: str
+    message_id: str
+
+
+class Candidate(BaseModel):
+    id: int
+    title: str
+    date: str
+    time: Optional[str] = None
+    location: Optional[str] = None
+
+
+class ExtractResponse(BaseModel):
+    candidate: Optional[Candidate] = None
+
+
+@router.post("/import/extract", response_model=ExtractResponse)
+async def import_extract(req: ExtractRequest) -> ExtractResponse:
+    result = await family_agent.extract_candidate(req.subject, req.body, req.message_id)
+    return ExtractResponse(**result)

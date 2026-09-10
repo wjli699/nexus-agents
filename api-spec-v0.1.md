@@ -151,6 +151,25 @@ both the Google Calendar workflow and the Gmail confirm-loop call; neither
 GCal- nor Gmail-specific parsing happens here, only already-normalized
 items.
 
+```
+POST /agents/family/import/extract
+  body: { "subject": "string", "body": "string", "message_id": "string" }
+  returns: { "candidate": {
+    "id": 7, "title": "string", "date": "YYYY-MM-DD",
+    "time": "HH:MM" | null, "location": "string" | null
+  } | null }
+```
+Local-LLM extraction (same Ollama classify pattern as `/agents/family/handle`)
+for the Gmail confirm loop: given an email's subject/body, decide whether
+it describes a dated event and, if so, queue it in
+`pending_family_imports` and return the candidate. `candidate: null` means
+"not an event," "date unresolvable," or "already queued/handled" (deduped
+by `message_id`, so a re-run of the Gmail workflow never re-prompts).
+Nothing is written to `family_events` here — that only happens when the
+user replies `"confirm <id>"` to `/agents/family/handle`, which reuses
+`/agents/family/import`'s upsert path with `source: "email"`. A `"skip
+<id>"` reply just discards the pending row.
+
 ---
 
 ## Progress checklist (update as you build)
@@ -160,3 +179,4 @@ items.
 - [x] n8n workflow simplified to Trigger → HTTP Request → Telegram reply
 - [x] `/router/classify` — agent dispatch (stock | family), local Ollama
 - [x] `/agents/family/import` — idempotent upsert by (source, external_id)
+- [x] `/agents/family/import/extract` — Gmail candidate extraction + confirm-loop queue

@@ -92,7 +92,8 @@ nexus/
 │   ├── agent-slim.json                Telegram → POST /handle → reply (all agents)
 │   ├── stock-heartbeat.json           Cron → stock heartbeat → alert if a ticker moved
 │   ├── family-heartbeat.json          Cron → family heartbeat → morning digest if any
-│   └── family-calendar-import.json    Cron → Google Calendar → /agents/family/import
+│   ├── family-calendar-import.json    Cron → Google Calendar → /agents/family/import
+│   └── family-gmail-import.json       Cron → Gmail → extract → Telegram confirm prompt
 ├── scripts/
 │   └── parity_check.py                backend vs n8n behaviour check (Milestone 1)
 └── docs/

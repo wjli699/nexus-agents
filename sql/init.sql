@@ -65,6 +65,28 @@ CREATE INDEX IF NOT EXISTS tasks_domain_status
     ON tasks (domain, status);
 
 -- ---------------------------------------------------------------------------
+-- Family agent — pending email imports (Milestone 3.5)
+-- Holds LLM-extracted event candidates from household email between
+-- extraction and the Telegram "confirm N / skip N" reply. A confirmed row
+-- moves into family_events (source='email') and is deleted from here; a
+-- skipped row is just deleted. external_id (Gmail message id) is unique so
+-- re-processing the same email never queues it twice.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS pending_family_imports (
+    id          SERIAL PRIMARY KEY,
+    external_id TEXT NOT NULL UNIQUE,
+    title       TEXT NOT NULL,
+    event_date  DATE NOT NULL,
+    start_time  TIME,
+    end_time    TIME,
+    location    TEXT,
+    notes       TEXT,
+    recurrence  TEXT,
+    raw_snippet TEXT,                        -- subject+body excerpt, for context
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ---------------------------------------------------------------------------
 -- Future (not yet created):
 --   projects        — Project agent (Milestone 4)
 --   news_sources    — News curation agent (Milestone 5)

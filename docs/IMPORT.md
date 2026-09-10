@@ -56,3 +56,63 @@ Cron trigger  →  Google Calendar (getAll)  →  Code (normalize)  →  HTTP Re
 4. Run the workflow again without changing anything — `inserted` should be
    `0` and `updated` should match the event count in the HTTP Request
    node's output, confirming the upsert path, not a duplicate insert.
+
+## Gmail import + confirm loop
+
+Unlike GCal (already a trusted, curated source), free-text email isn't —
+nothing from this path writes to `family_events` automatically. Extraction
+only *queues a candidate*; you confirm or skip it from Telegram.
+
+### Shape
+
+```
+Cron (n8n, 2h)  →  Gmail (search)  →  HTTP Request          →  IF (candidate != null)  →  Telegram prompt
+                    household           POST .../import/extract        │ true                    "confirm N" / "skip N"
+                    sender allowlist                                   └ false → (nothing)               │
+                                                                                                            ▼
+                                                              existing agent-slim.json (Telegram → /handle)
+                                                              recognizes "confirm N"/"skip N" and resolves it
+```
+
+- **Extraction is the only new logic**, and it's the same local-Ollama
+  pattern the family classifier already uses (`app/agents/family.py`'s
+  `IMPORT_EXTRACT_PROMPT` via `llm.complete_json`) — no Claude API call
+  needed for this.
+- **The confirm/skip reply doesn't go through this workflow at all.** It's
+  a plain Telegram message, so it flows through the existing
+  `agent-slim.json` (Telegram Trigger → `POST /handle` → reply).
+  `family.handle()` checks for `"confirm <id>"` / `"skip <id>"`
+  *deterministically* (a regex, no LLM call) before its normal classifier
+  ever runs, and dispatches from there.
+- **Dedupe is on the Gmail message id.** `pending_family_imports.external_id`
+  is unique, so re-running the search workflow (every 2h, on an overlapping
+  `newer_than:1d` window) never re-prompts for the same email.
+
+### Setup (mini PC)
+
+1. In Google Cloud Console (the same project as the Calendar import, or a
+   new one): enable the **Gmail API**, add a Gmail OAuth2 credential
+   scoped **read-only** (`gmail.readonly` — this workflow never sends or
+   modifies mail).
+2. n8n → **Credentials** → new **Gmail OAuth2** credential.
+3. n8n → **Import from File** → `workflows/family-gmail-import.json`.
+4. Open **Search household senders** → select the Gmail credential, and
+   replace `REPLACE_WITH_HOUSEHOLD_SENDERS` in the search query with your
+   actual allowlist, e.g. `school@example.org OR partner@example.com`.
+5. Open **Send confirm prompt** → set **Chat ID** (same as the other
+   workflows).
+6. **Publish**.
+
+### Verify
+
+1. Send yourself a test email from an allowlisted sender describing an
+   event ("Soccer practice moved to Saturday 10am").
+2. **Execute workflow** manually — you should get a Telegram prompt within
+   one run.
+3. Reply `confirm <id>` — the bot should reply `Added event: ...`, and the
+   event should show up in `/agents/family/handle` `"list"`.
+4. Send another test email that *isn't* an event (a newsletter) and
+   confirm no Telegram prompt arrives for it.
+5. Reply `skip <id>` to a real candidate and confirm it does **not** show
+   up in the event list, and that re-running the workflow doesn't
+   re-prompt for the same email (dedupe on `message_id`).

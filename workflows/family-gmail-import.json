@@ -1,0 +1,110 @@
+{
+  "name": "Family Gmail Import (Cron - extract + Telegram confirm loop)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 */2 * * *" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "ff000001-0000-4000-8000-000000000001",
+      "name": "Schedule (every 2 hours)"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "filters": {
+          "q": "newer_than:1d from:(REPLACE_WITH_HOUSEHOLD_SENDERS)"
+        },
+        "options": { "simple": true }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [260, 0],
+      "id": "ff000002-0000-4000-8000-000000000002",
+      "name": "Search household senders",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "REPLACE - Gmail account"
+        }
+      },
+      "notes": "q's from:(...) is a plain n8n-side allowlist filter, not backend logic — same 'thin trigger' spirit as the Telegram chat-id binding elsewhere. \"simple\": true returns subject/from/snippet without MIME parsing; snippet (Gmail's short plain-text preview) is used as the body sent to extraction below rather than the full message."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://nexus-backend:8000/agents/family/import/extract",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.snippet, message_id: $json.id }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [480, 0],
+      "id": "ff000003-0000-4000-8000-000000000003",
+      "name": "Extract candidate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ff-cond-1",
+              "leftValue": "={{ $json.candidate !== null }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 0],
+      "id": "ff000004-0000-4000-8000-000000000004",
+      "name": "candidate != null?"
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_CHAT_ID",
+        "text": "=Add this? {{ $json.candidate.title }} — {{ $json.candidate.date }}{{ $json.candidate.time ? ' ' + $json.candidate.time : '' }}\nreply \"confirm {{ $json.candidate.id }}\" or \"skip {{ $json.candidate.id }}\"",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [920, -80],
+      "id": "ff000005-0000-4000-8000-000000000005",
+      "name": "Send confirm prompt",
+      "credentials": {
+        "telegramApi": { "id": "3MBSKy4Iu47Ic8Rk", "name": "Telegram account" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule (every 2 hours)": {
+      "main": [[{ "node": "Search household senders", "type": "main", "index": 0 }]]
+    },
+    "Search household senders": {
+      "main": [[{ "node": "Extract candidate", "type": "main", "index": 0 }]]
+    },
+    "Extract candidate": {
+      "main": [[{ "node": "candidate != null?", "type": "main", "index": 0 }]]
+    },
+    "candidate != null?": {
+      "main": [[{ "node": "Send confirm prompt", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
