@@ -189,7 +189,9 @@ def test_import_new_event_inserts(fake_pool):
     out = _run(family.import_events([_item()]))
     assert out == {"inserted": 1, "updated": 0}
     assert pool.calls[0][0] == "fetchval"
-    assert "ON CONFLICT (source, external_id) DO UPDATE" in pool.calls[0][1]
+    # The WHERE clause must match family_events_source_external_id's partial
+    # index predicate exactly, or Postgres rejects the ON CONFLICT target.
+    assert "ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL" in pool.calls[0][1]
 
 
 def test_import_existing_event_updates_not_duplicates(fake_pool):
