@@ -71,17 +71,17 @@ Goal: proactive alerts, not just reactive commands.
 > classification/parsing for now** — revisit Claude API only if relative-date
 > parsing ("next Friday") proves unreliable in practice.
 
-## Milestone 3: Family / Household Agent + shared task capability
+## Milestone 3: Family / Household Agent + shared task capability — DONE
 Goal: second agent (proves the router pattern with 2+ agents), and a
 central hub for family events + family to-dos. Manual entry only.
 
-- [ ] Design schema: `family_events` (calendar shape) + shared `tasks`
+- [x] Design schema: `family_events` (calendar shape) + shared `tasks`
       table (`domain`, `title`, `status`, `due_date?`, `notes`,
       `project_id?`) — added to `sql/init.sql`
 - [x] Implement `/router/classify` — top-level agent dispatch (stock |
       family), local Ollama, called by n8n before the per-agent endpoint.
       Router picks the agent only; each `/handle` sub-classifies.
-- [ ] Shared `app/tasks.py` — `add` / `list` / `done` / `remove`, scoped
+- [x] Shared `app/tasks.py` — `add` / `list` / `done` / `remove`, scoped
       by `domain`; each agent delegates its task subcommands here
 - [x] Implement `/agents/family/handle` — sub-classify `event` vs `task`,
       then: events `add` / `list` / `remove` / `next`; tasks via `tasks.py`.
