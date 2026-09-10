@@ -163,3 +163,49 @@ def test_heartbeat_includes_overdue_task(monkeypatch, fake_pool):
     out = _run(family.heartbeat(lookahead_days=1))
     assert out["alert"] is True
     assert "#3 pay bill (overdue)" in out["text"]
+
+
+# --- import: idempotent write for externally-sourced events (ROADMAP M3.5) -
+
+
+def _item(**overrides):
+    item = {
+        "source": "gcal",
+        "external_id": "evt-1",
+        "title": "Dentist",
+        "event_date": date(2026, 10, 2),
+        "start_time": None,
+        "end_time": None,
+        "location": None,
+        "notes": None,
+        "recurrence": None,
+    }
+    item.update(overrides)
+    return item
+
+
+def test_import_new_event_inserts(fake_pool):
+    pool = fake_pool(fetchval_queue=[True])
+    out = _run(family.import_events([_item()]))
+    assert out == {"inserted": 1, "updated": 0}
+    assert pool.calls[0][0] == "fetchval"
+    assert "ON CONFLICT (source, external_id) DO UPDATE" in pool.calls[0][1]
+
+
+def test_import_existing_event_updates_not_duplicates(fake_pool):
+    # Same (source, external_id) re-imported — the upsert takes the DO
+    # UPDATE branch, so xmax != 0 and FakePool is configured to return that.
+    pool = fake_pool(fetchval_queue=[False])
+    out = _run(family.import_events([_item(title="Dentist (rescheduled)")]))
+    assert out == {"inserted": 0, "updated": 1}
+    assert pool.calls[0][2][0] == "Dentist (rescheduled)"
+
+
+def test_import_mixed_batch_tallies_both(fake_pool):
+    fake_pool(fetchval_queue=[True, False, True])
+    out = _run(family.import_events([
+        _item(external_id="evt-1"),
+        _item(external_id="evt-2"),
+        _item(external_id="evt-3", source="email"),
+    ]))
+    assert out == {"inserted": 2, "updated": 1}

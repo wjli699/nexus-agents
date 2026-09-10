@@ -96,7 +96,7 @@ central hub for family events + family to-dos. Manual entry only.
       from `/agents/stock/handle` to `/handle`.
 
 ## Milestone 3.5: Calendar & email import (family)
-- [ ] `/agents/family/import` — accept normalized items, dedupe/upsert by
+- [x] `/agents/family/import` — accept normalized items, dedupe/upsert by
       (`source`, `external_id`)
 - [ ] n8n Google Calendar node (OAuth) → scheduled pull of upcoming events
       → POST to import endpoint (read-only; GCal is source of truth)

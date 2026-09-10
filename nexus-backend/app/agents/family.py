@@ -225,6 +225,44 @@ async def _upcoming(limit: int = 20) -> list:
     return out[:limit]
 
 
+# --- import: idempotent write for externally-sourced events (ROADMAP M3.5) -
+
+
+async def import_events(items: list[dict]) -> dict:
+    """Upsert normalized events keyed on (source, external_id), so
+    re-running an import (a daily GCal sync, a re-processed email) never
+    duplicates a row — it just refreshes it."""
+    pool = db.get_pool()
+    inserted = updated = 0
+    for item in items:
+        was_insert = await pool.fetchval(
+            "INSERT INTO family_events "
+            "(title, event_date, start_time, end_time, location, notes, "
+            "recurrence, source, external_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) "
+            "ON CONFLICT (source, external_id) DO UPDATE SET "
+            "title = EXCLUDED.title, event_date = EXCLUDED.event_date, "
+            "start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time, "
+            "location = EXCLUDED.location, notes = EXCLUDED.notes, "
+            "recurrence = EXCLUDED.recurrence "
+            "RETURNING (xmax = 0)",
+            item["title"],
+            item["event_date"],
+            item.get("start_time"),
+            item.get("end_time"),
+            item.get("location"),
+            item.get("notes"),
+            item.get("recurrence"),
+            item["source"],
+            item["external_id"],
+        )
+        if was_insert:
+            inserted += 1
+        else:
+            updated += 1
+    return {"inserted": inserted, "updated": updated}
+
+
 # --- heartbeat: morning digest (ROADMAP M3) ---------------------------
 
 

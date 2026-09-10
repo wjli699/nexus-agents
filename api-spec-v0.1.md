@@ -131,9 +131,32 @@ POST /agents/news/heartbeat      — scheduled digest delivery
 
 ---
 
+## 4. Family Agent — import (Milestone 3.5)
+
+```
+POST /agents/family/import
+  body: { "items": [
+    { "source": "gcal" | "email", "external_id": "string",
+      "title": "string", "event_date": "YYYY-MM-DD",
+      "start_time": "HH:MM" | null, "end_time": "HH:MM" | null,
+      "location": "string" | null, "notes": "string" | null,
+      "recurrence": "yearly" | "monthly" | "weekly" | null }
+  ] }
+  returns: { "inserted": 2, "updated": 1 }
+```
+Idempotent upsert into `family_events`, keyed on `(source, external_id)` —
+re-running an import (a daily GCal sync, a re-processed email) refreshes
+existing rows instead of duplicating them. This is the common write path
+both the Google Calendar workflow and the Gmail confirm-loop call; neither
+GCal- nor Gmail-specific parsing happens here, only already-normalized
+items.
+
+---
+
 ## Progress checklist (update as you build)
 
 - [x] `/agents/stock/handle` (combined) — classify + route + check/add/remove/list
 - [x] `/agents/stock/heartbeat` — deterministic threshold scan, no LLM
 - [x] n8n workflow simplified to Trigger → HTTP Request → Telegram reply
 - [x] `/router/classify` — agent dispatch (stock | family), local Ollama
+- [x] `/agents/family/import` — idempotent upsert by (source, external_id)
