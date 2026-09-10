@@ -20,6 +20,10 @@ services:
       - WEBHOOK_URL=${WEBHOOK_URL}
       - N8N_HOST=${N8N_HOST}
       - N8N_PROTOCOL=https
+      # tailscale funnel sits in front of n8n as a reverse proxy — without
+      # this, OAuth2 credential flows (Google Calendar/Gmail, M3.5) silently
+      # fail with "Unable to sign without access token" (JOURNAL.md #13).
+      - N8N_PROXY_HOPS=1
       # Deprecation defaults pinned explicitly — see n8n startup warnings
       - N8N_UNVERIFIED_PACKAGES_ENABLED=true
       - N8N_RUNNERS_TASK_TIMEOUT=300
