@@ -110,9 +110,13 @@ Cron (n8n, 2h)  →  Gmail (search)  →  Gmail (get full)  →  Code (decode)  
   simplified search output truncates to a ~100-200 character snippet,
   which for a *forwarded* email is entirely eaten by the
   `----- Forwarded Message -----` header block — none of the actual event
-  content survives. The second call fetches each matching message's real
-  MIME payload so the Code node can pull a full plain-text body out of it
-  (falling back to a stripped HTML part if no plain-text part exists).
+  content survives. The second call fetches each matching message in full;
+  confirmed live that with Simplify off, this n8n version's Gmail node
+  already hands back parsed top-level `subject`/`text`/`html` fields, so
+  the Code node just picks `text` (falling back to a stripped `html`) —
+  no manual MIME/base64 decoding needed. (An earlier version of this
+  workflow assumed the raw Gmail API payload shape and had to walk/decode
+  MIME parts by hand — turned out unnecessary once we saw the real output.)
 - **Extraction is the only new logic**, and it's the same local-Ollama
   pattern the family classifier already uses (`app/agents/family.py`'s
   `IMPORT_EXTRACT_PROMPT` via `llm.complete_json`) — no Claude API call
