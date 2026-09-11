@@ -46,7 +46,17 @@ async def complete_json(prompt: str) -> dict | None:
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(f"{settings.llm_base_url}/api/generate", json=body)
         resp.raise_for_status()
-        return _extract_json(resp.json())
+        data = resp.json()
+        parsed = _extract_json(data)
+        # Temporary visibility while chasing inconsistent extraction —
+        # `docker compose logs nexus-backend` shows exactly what the model
+        # actually said, instead of guessing from the parsed result alone.
+        print(
+            f"[llm.complete_json] response={data.get('response')!r} "
+            f"thinking={(data.get('thinking') or '')[:300]!r} parsed={parsed!r}",
+            flush=True,
+        )
+        return parsed
 
 
 def _extract_json(data: dict) -> dict | None:
