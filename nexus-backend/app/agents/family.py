@@ -337,7 +337,19 @@ async def extract_candidate(
     the n8n workflow that calls this endpoint. `received` is the email's
     own Date header — relative phrases ("this Friday") resolve against
     that, not against today, since the email may not get confirmed until
-    well after it arrived."""
+    well after it arrived.
+
+    "Already handled" is checked against family_events, not just
+    pending_family_imports — a confirmed email's pending row gets deleted,
+    so without this a still-in-window message could be re-extracted and
+    re-prompted on a later run as if it were new."""
+    already_confirmed = await db.get_pool().fetchval(
+        "SELECT 1 FROM family_events WHERE source = 'email' AND external_id = $1",
+        message_id,
+    )
+    if already_confirmed:
+        return {"candidate": None}
+
     body = body if body and body.strip() else (_strip_html(html) if html else "")
     parsed = await llm.complete_json(
         IMPORT_EXTRACT_PROMPT.format(subject=subject, body=body)

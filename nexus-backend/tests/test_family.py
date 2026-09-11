@@ -216,10 +216,20 @@ def test_import_mixed_batch_tallies_both(fake_pool):
 # --- email import: extract + confirm loop (ROADMAP M3.5) ------------------
 
 
-def test_extract_not_an_event_returns_none(monkeypatch):
+def test_extract_not_an_event_returns_none(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, {"is_event": False})
+    fake_pool(fetchval_queue=[None])  # not already confirmed
     out = _run(family.extract_candidate("Weekly newsletter", "stuff", "msg-1"))
     assert out == {"candidate": None}
+
+
+def test_extract_already_confirmed_short_circuits(monkeypatch, fake_pool):
+    # Confirming deletes the pending_family_imports row, so that alone
+    # can't signal "already handled" -- family_events is the durable check.
+    pool = fake_pool(fetchval_queue=[True])  # already in family_events
+    out = _run(family.extract_candidate("School play", "body text", "msg-3"))
+    assert out == {"candidate": None}
+    assert "family_events" in pool.calls[0][1]
 
 
 def test_extract_falls_back_to_stripped_html_when_body_empty(monkeypatch, fake_pool):
@@ -233,7 +243,7 @@ def test_extract_falls_back_to_stripped_html_when_body_empty(monkeypatch, fake_p
         }
 
     monkeypatch.setattr(family.llm, "complete_json", fake)
-    fake_pool(fetchval_queue=[9])
+    fake_pool(fetchval_queue=[None, 9])  # not already confirmed, then insert id
     html = "<html><body><p>Join us <b>October 3, 2026</b> for the picnic!</p></body></html>"
     out = _run(family.extract_candidate("Fall Picnic", "", "msg-html", html=html))
     assert out == {"candidate": {
@@ -245,11 +255,12 @@ def test_extract_falls_back_to_stripped_html_when_body_empty(monkeypatch, fake_p
     assert "Join us October 3, 2026 for the picnic!" in seen["prompt"]
 
 
-def test_extract_unresolvable_date_returns_none(monkeypatch):
+def test_extract_unresolvable_date_returns_none(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, {
         "is_event": True, "title": "Recital", "date_phrase": "sometime soonish",
         "time": None, "location": None,
     })
+    fake_pool(fetchval_queue=[None])  # not already confirmed
     out = _run(family.extract_candidate("Recital", "body", "msg-2"))
     assert out == {"candidate": None}
 
@@ -259,13 +270,13 @@ def test_extract_valid_event_queues_and_returns_candidate(monkeypatch, fake_pool
         "is_event": True, "title": "School play", "date_phrase": "2026-10-02",
         "time": "18:30", "location": "Gym",
     })
-    pool = fake_pool(fetchval_queue=[7])
+    pool = fake_pool(fetchval_queue=[None, 7])  # not already confirmed, then insert id
     out = _run(family.extract_candidate("School play", "body text", "msg-3"))
     assert out == {"candidate": {
         "id": 7, "title": "School play", "date": "2026-10-02",
         "time": "18:30", "location": "Gym",
     }}
-    assert "pending_family_imports" in pool.calls[0][1]
+    assert "pending_family_imports" in pool.calls[1][1]
 
 
 def test_extract_resolves_relative_phrase_against_received_date(monkeypatch, fake_pool):
@@ -275,7 +286,7 @@ def test_extract_resolves_relative_phrase_against_received_date(monkeypatch, fak
         "is_event": True, "title": "Coffee", "date_phrase": "this Friday",
         "time": None, "location": None,
     })
-    fake_pool(fetchval_queue=[8])
+    fake_pool(fetchval_queue=[None, 8])  # not already confirmed, then insert id
     out = _run(family.extract_candidate(
         "Coffee", "body", "msg-received",
         received="2026-09-01T12:00:00.000Z",  # a Tuesday
@@ -288,7 +299,8 @@ def test_extract_dedupes_already_queued_message(monkeypatch, fake_pool):
         "is_event": True, "title": "School play", "date_phrase": "2026-10-02",
         "time": None, "location": None,
     })
-    fake_pool(fetchval_queue=[None])  # ON CONFLICT DO NOTHING, no row returned
+    # not already confirmed, then ON CONFLICT DO NOTHING (still pending)
+    fake_pool(fetchval_queue=[None, None])
     out = _run(family.extract_candidate("School play", "body text", "msg-3"))
     assert out == {"candidate": None}
 
