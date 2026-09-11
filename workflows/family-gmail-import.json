@@ -45,7 +45,7 @@
         "url": "http://nexus-backend:8000/agents/family/import/extract",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.snippet, message_id: $json.id }) }}",
+        "jsonBody": "={{ JSON.stringify({ subject: $json.Subject, body: $json.snippet, message_id: $json.id }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
