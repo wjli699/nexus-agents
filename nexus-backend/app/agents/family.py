@@ -286,6 +286,13 @@ IMPORT_EXTRACT_PROMPT = (
     "event/appointment/activity — not a newsletter, receipt, or ad.\n"
     '- date_phrase = the date words exactly as written ("friday", '
     '"march 15", "2026-10-02"). Do NOT convert to a number. null if none.\n'
+    "- Emails are often a casual, conversational reminder, not a formal "
+    "announcement — still extract the event buried in the sentence.\n"
+    'Example: Subject: "Reminder: Fall Picnic" Body: "Just a reminder '
+    "that the Fall Picnic is happening on October 3, 2026 at 4:30 PM in "
+    'the school courtyard. Hope to see you there!" -> '
+    '{{"is_event":true,"title":"Fall Picnic","date_phrase":"October 3, 2026",'
+    '"time":"16:30","location":"school courtyard"}}\n'
     "Subject: {subject}\n"
     "Body: {body}"
 )
