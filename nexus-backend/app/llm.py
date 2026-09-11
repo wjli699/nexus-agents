@@ -38,6 +38,10 @@ async def complete_json(prompt: str) -> dict | None:
         "stream": False,
         "think": False,  # JOURNAL.md #10
         "format": "json",
+        # Every caller here is structured classification/extraction, not
+        # creative generation — we want the model's most-confident answer
+        # every time, not sampling variance across identical prompts.
+        "options": {"temperature": 0},
     }
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(f"{settings.llm_base_url}/api/generate", json=body)
