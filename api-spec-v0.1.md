@@ -154,7 +154,7 @@ items.
 ```
 POST /agents/family/import/extract
   body: { "subject": "string", "body": "string", "message_id": "string",
-          "html": "string" | null }
+          "html": "string" | null, "received": "ISO datetime string" | null }
   returns: { "candidate": {
     "id": 7, "title": "string", "date": "YYYY-MM-DD",
     "time": "HH:MM" | null, "location": "string" | null
@@ -169,7 +169,10 @@ by `message_id`, so a re-run of the Gmail workflow never re-prompts).
 `html` is an optional fallback the endpoint strips tags from itself when
 `body` is empty (some messages have no plain-text part) — n8n forwards
 both raw fields rather than deciding which to use, keeping that choice in
-Python rather than in the workflow.
+Python rather than in the workflow. `received` is the email's own Date
+header — relative phrases ("this Friday") resolve against that instead of
+whatever day the email actually gets processed/confirmed on, which can
+drift if there's a lag.
 Nothing is written to `family_events` here — that only happens when the
 user replies `"confirm <id>"` to `/agents/family/handle`, which reuses
 `/agents/family/import`'s upsert path with `source: "email"`. A `"skip

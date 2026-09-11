@@ -268,6 +268,21 @@ def test_extract_valid_event_queues_and_returns_candidate(monkeypatch, fake_pool
     assert "pending_family_imports" in pool.calls[0][1]
 
 
+def test_extract_resolves_relative_phrase_against_received_date(monkeypatch, fake_pool):
+    # "this Friday" must resolve relative to when the email actually
+    # arrived, not whenever we happen to process/confirm it later.
+    _stub_classify(monkeypatch, {
+        "is_event": True, "title": "Coffee", "date_phrase": "this Friday",
+        "time": None, "location": None,
+    })
+    fake_pool(fetchval_queue=[8])
+    out = _run(family.extract_candidate(
+        "Coffee", "body", "msg-received",
+        received="2026-09-01T12:00:00.000Z",  # a Tuesday
+    ))
+    assert out["candidate"]["date"] == "2026-09-04"  # that week's Friday
+
+
 def test_extract_dedupes_already_queued_message(monkeypatch, fake_pool):
     _stub_classify(monkeypatch, {
         "is_event": True, "title": "School play", "date_phrase": "2026-10-02",

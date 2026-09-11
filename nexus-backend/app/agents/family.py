@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import calendar
 import re
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from .. import db, dates, llm, tasks
 from ..config import get_settings
@@ -305,8 +305,26 @@ def _strip_html(html: str) -> str:
     return re.sub(r"\s+", " ", _HTML_TAG_RE.sub(" ", html)).strip()
 
 
+def _parse_received(received: str | None) -> date | None:
+    """Best-effort parse of an email's own Date header (ISO-ish, possibly
+    with a trailing Z) into a plain date, for resolving relative phrases
+    ("this Friday") against when the email actually arrived — not against
+    whatever day we happen to be processing it on, which drifts wrong if
+    there's any lag before it gets confirmed."""
+    if not received:
+        return None
+    try:
+        return datetime.fromisoformat(received.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
 async def extract_candidate(
-    subject: str, body: str, message_id: str, html: str | None = None
+    subject: str,
+    body: str,
+    message_id: str,
+    html: str | None = None,
+    received: str | None = None,
 ) -> dict:
     """LLM-extract an event from an email and queue it in
     pending_family_imports for a "confirm N" / "skip N" reply. Returns
@@ -316,7 +334,10 @@ async def extract_candidate(
     `body` is the preferred plain-text content; `html` is a fallback for a
     message with no plain-text part (some Gmail clients only send HTML) —
     deciding between them is real logic, so it lives here rather than in
-    the n8n workflow that calls this endpoint."""
+    the n8n workflow that calls this endpoint. `received` is the email's
+    own Date header — relative phrases ("this Friday") resolve against
+    that, not against today, since the email may not get confirmed until
+    well after it arrived."""
     body = body if body and body.strip() else (_strip_html(html) if html else "")
     parsed = await llm.complete_json(
         IMPORT_EXTRACT_PROMPT.format(subject=subject, body=body)
@@ -326,7 +347,8 @@ async def extract_candidate(
 
     title = _clean_str(parsed.get("title"))
     date_phrase = _clean_str(parsed.get("date_phrase"))
-    event_date = dates.resolve(date_phrase, date.today()) if date_phrase else None
+    reference = _parse_received(received) or date.today()
+    event_date = dates.resolve(date_phrase, reference) if date_phrase else None
     if not title or not event_date:
         return {"candidate": None}
 
