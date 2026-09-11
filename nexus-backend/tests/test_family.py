@@ -222,6 +222,29 @@ def test_extract_not_an_event_returns_none(monkeypatch):
     assert out == {"candidate": None}
 
 
+def test_extract_falls_back_to_stripped_html_when_body_empty(monkeypatch, fake_pool):
+    seen = {}
+
+    async def fake(prompt):
+        seen["prompt"] = prompt
+        return {
+            "is_event": True, "title": "Fall Picnic", "date_phrase": "2026-10-03",
+            "time": None, "location": None,
+        }
+
+    monkeypatch.setattr(family.llm, "complete_json", fake)
+    fake_pool(fetchval_queue=[9])
+    html = "<html><body><p>Join us <b>October 3, 2026</b> for the picnic!</p></body></html>"
+    out = _run(family.extract_candidate("Fall Picnic", "", "msg-html", html=html))
+    assert out == {"candidate": {
+        "id": 9, "title": "Fall Picnic", "date": "2026-10-03",
+        "time": None, "location": None,
+    }}
+    # The stripped text, not raw markup, went into the extraction prompt.
+    assert "<p>" not in seen["prompt"]
+    assert "Join us October 3, 2026 for the picnic!" in seen["prompt"]
+
+
 def test_extract_unresolvable_date_returns_none(monkeypatch):
     _stub_classify(monkeypatch, {
         "is_event": True, "title": "Recital", "date_phrase": "sometime soonish",

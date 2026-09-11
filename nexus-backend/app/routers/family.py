@@ -72,6 +72,7 @@ class ExtractRequest(BaseModel):
     subject: str
     body: str
     message_id: str
+    html: Optional[str] = None
 
 
 class Candidate(BaseModel):
@@ -88,5 +89,7 @@ class ExtractResponse(BaseModel):
 
 @router.post("/import/extract", response_model=ExtractResponse)
 async def import_extract(req: ExtractRequest) -> ExtractResponse:
-    result = await family_agent.extract_candidate(req.subject, req.body, req.message_id)
+    result = await family_agent.extract_candidate(
+        req.subject, req.body, req.message_id, html=req.html
+    )
     return ExtractResponse(**result)

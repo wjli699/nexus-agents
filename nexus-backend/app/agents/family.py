@@ -291,11 +291,26 @@ IMPORT_EXTRACT_PROMPT = (
 )
 
 
-async def extract_candidate(subject: str, body: str, message_id: str) -> dict:
+_HTML_TAG_RE = re.compile(r"<style[\s\S]*?</style>|<script[\s\S]*?</script>|<[^>]+>")
+
+
+def _strip_html(html: str) -> str:
+    return re.sub(r"\s+", " ", _HTML_TAG_RE.sub(" ", html)).strip()
+
+
+async def extract_candidate(
+    subject: str, body: str, message_id: str, html: str | None = None
+) -> dict:
     """LLM-extract an event from an email and queue it in
     pending_family_imports for a "confirm N" / "skip N" reply. Returns
     {"candidate": None} if it's not an event, the date can't be resolved,
-    or this message_id was already queued/handled by a prior run."""
+    or this message_id was already queued/handled by a prior run.
+
+    `body` is the preferred plain-text content; `html` is a fallback for a
+    message with no plain-text part (some Gmail clients only send HTML) —
+    deciding between them is real logic, so it lives here rather than in
+    the n8n workflow that calls this endpoint."""
+    body = body if body and body.strip() else (_strip_html(html) if html else "")
     parsed = await llm.complete_json(
         IMPORT_EXTRACT_PROMPT.format(subject=subject, body=body)
     ) or {}

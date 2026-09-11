@@ -57,18 +57,7 @@
           "name": "REPLACE - Gmail account"
         }
       },
-      "notes": "Fetches the full message instead of the truncated snippet — necessary for forwarded emails, where the real content sits well past what a short snippet preview would capture. Confirmed live: with Simplify off, this action returns clean top-level `subject`/`text`/`html` fields already parsed (mailparser-style) — no manual MIME/base64 decoding needed, see the Decode body node."
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// This n8n version's Gmail \"Get a message\" action already parses the\n// message (mailparser-style) and hands back clean top-level `subject` /\n// `text` fields directly -- no MIME/base64 decoding needed on our side.\n// Fall back to a stripped `html` field for the rare message with no\n// plain-text part.\nfunction stripHtml(html) {\n  return html\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst body = $json.text || (($json.html && stripHtml($json.html)) || '');\nreturn { json: { id: $json.id, subject: $json.subject || '', body: body.slice(0, 3000) } };"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [700, 0],
-      "id": "ff000007-0000-4000-8000-000000000007",
-      "name": "Decode body"
+      "notes": "Fetches the full message instead of the truncated snippet — necessary for forwarded emails, where the real content sits well past what a short snippet preview would capture. Confirmed live: with Simplify off, this action returns clean top-level `subject`/`text`/`html` fields already parsed. n8n just forwards subject/text/html/id as-is below — deciding between text and html, and stripping html's tags, is real logic and lives in the backend (app/agents/family.py's extract_candidate), not here."
     },
     {
       "parameters": {
@@ -76,12 +65,12 @@
         "url": "http://nexus-backend:8000/agents/family/import/extract",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.body, message_id: $json.id }) }}",
+        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.text, html: $json.html, message_id: $json.id }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [920, 0],
+      "position": [700, 0],
       "id": "ff000003-0000-4000-8000-000000000003",
       "name": "Extract candidate"
     },
@@ -103,7 +92,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1140, 0],
+      "position": [920, 0],
       "id": "ff000004-0000-4000-8000-000000000004",
       "name": "candidate != null?"
     },
@@ -115,7 +104,7 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1360, -80],
+      "position": [1140, -80],
       "id": "ff000005-0000-4000-8000-000000000005",
       "name": "Send confirm prompt",
       "credentials": {
@@ -131,9 +120,6 @@
       "main": [[{ "node": "Get full message", "type": "main", "index": 0 }]]
     },
     "Get full message": {
-      "main": [[{ "node": "Decode body", "type": "main", "index": 0 }]]
-    },
-    "Decode body": {
       "main": [[{ "node": "Extract candidate", "type": "main", "index": 0 }]]
     },
     "Extract candidate": {

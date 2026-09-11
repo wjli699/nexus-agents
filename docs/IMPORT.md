@@ -97,12 +97,12 @@ only *queues a candidate*; you confirm or skip it from Telegram.
 ### Shape
 
 ```
-Cron (n8n, 2h)  →  Gmail (search)  →  Gmail (get full)  →  Code (decode)  →  HTTP Request          →  IF (candidate != null)  →  Telegram prompt
-                    household ids       raw MIME payload     Subject + plain    POST .../import/extract        │ true                    "confirm N" / "skip N"
-                    sender allowlist                          text body                                        └ false → (nothing)               │
-                                                                                                                                                     ▼
-                                                                                                       existing agent-slim.json (Telegram → /handle)
-                                                                                                       recognizes "confirm N"/"skip N" and resolves it
+Cron (n8n, 2h)  →  Gmail (search)  →  Gmail (get full)  →  HTTP Request          →  IF (candidate != null)  →  Telegram prompt
+                    household ids       subject/text/html    POST .../import/extract        │ true                    "confirm N" / "skip N"
+                    sender allowlist     forwarded as-is                                     └ false → (nothing)               │
+                                                                                                                                  ▼
+                                                                                                existing agent-slim.json (Telegram → /handle)
+                                                                                                recognizes "confirm N"/"skip N" and resolves it
 ```
 
 - **Two Gmail calls per message, deliberately.** The search step only
@@ -110,13 +110,13 @@ Cron (n8n, 2h)  →  Gmail (search)  →  Gmail (get full)  →  Code (decode)  
   simplified search output truncates to a ~100-200 character snippet,
   which for a *forwarded* email is entirely eaten by the
   `----- Forwarded Message -----` header block — none of the actual event
-  content survives. The second call fetches each matching message in full;
-  confirmed live that with Simplify off, this n8n version's Gmail node
-  already hands back parsed top-level `subject`/`text`/`html` fields, so
-  the Code node just picks `text` (falling back to a stripped `html`) —
-  no manual MIME/base64 decoding needed. (An earlier version of this
-  workflow assumed the raw Gmail API payload shape and had to walk/decode
-  MIME parts by hand — turned out unnecessary once we saw the real output.)
+  content survives. The second call fetches each matching message in full.
+- **No Code node.** n8n just forwards whatever `subject`/`text`/`html`
+  fields the second Gmail call returns straight into the request body —
+  deciding between `text` and a stripped `html` fallback is real logic
+  (per `CLAUDE.md`'s "n8n stays thin" rule), so it lives in
+  `extract_candidate` (`app/agents/family.py`) instead of an n8n
+  transform step.
 - **Extraction is the only new logic**, and it's the same local-Ollama
   pattern the family classifier already uses (`app/agents/family.py`'s
   `IMPORT_EXTRACT_PROMPT` via `llm.complete_json`) — no Claude API call

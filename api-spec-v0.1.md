@@ -153,7 +153,8 @@ items.
 
 ```
 POST /agents/family/import/extract
-  body: { "subject": "string", "body": "string", "message_id": "string" }
+  body: { "subject": "string", "body": "string", "message_id": "string",
+          "html": "string" | null }
   returns: { "candidate": {
     "id": 7, "title": "string", "date": "YYYY-MM-DD",
     "time": "HH:MM" | null, "location": "string" | null
@@ -165,6 +166,10 @@ it describes a dated event and, if so, queue it in
 `pending_family_imports` and return the candidate. `candidate: null` means
 "not an event," "date unresolvable," or "already queued/handled" (deduped
 by `message_id`, so a re-run of the Gmail workflow never re-prompts).
+`html` is an optional fallback the endpoint strips tags from itself when
+`body` is empty (some messages have no plain-text part) — n8n forwards
+both raw fields rather than deciding which to use, keeping that choice in
+Python rather than in the workflow.
 Nothing is written to `family_events` here — that only happens when the
 user replies `"confirm <id>"` to `/agents/family/handle`, which reuses
 `/agents/family/import`'s upsert path with `source: "email"`. A `"skip
