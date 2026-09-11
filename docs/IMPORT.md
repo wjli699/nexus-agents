@@ -97,14 +97,22 @@ only *queues a candidate*; you confirm or skip it from Telegram.
 ### Shape
 
 ```
-Cron (n8n, 2h)  →  Gmail (search)  →  HTTP Request          →  IF (candidate != null)  →  Telegram prompt
-                    household           POST .../import/extract        │ true                    "confirm N" / "skip N"
-                    sender allowlist                                   └ false → (nothing)               │
-                                                                                                            ▼
-                                                              existing agent-slim.json (Telegram → /handle)
-                                                              recognizes "confirm N"/"skip N" and resolves it
+Cron (n8n, 2h)  →  Gmail (search)  →  Gmail (get full)  →  Code (decode)  →  HTTP Request          →  IF (candidate != null)  →  Telegram prompt
+                    household ids       raw MIME payload     Subject + plain    POST .../import/extract        │ true                    "confirm N" / "skip N"
+                    sender allowlist                          text body                                        └ false → (nothing)               │
+                                                                                                                                                     ▼
+                                                                                                       existing agent-slim.json (Telegram → /handle)
+                                                                                                       recognizes "confirm N"/"skip N" and resolves it
 ```
 
+- **Two Gmail calls per message, deliberately.** The search step only
+  needs message ids to apply the sender/date filter cheaply; Gmail's
+  simplified search output truncates to a ~100-200 character snippet,
+  which for a *forwarded* email is entirely eaten by the
+  `----- Forwarded Message -----` header block — none of the actual event
+  content survives. The second call fetches each matching message's real
+  MIME payload so the Code node can pull a full plain-text body out of it
+  (falling back to a stripped HTML part if no plain-text part exists).
 - **Extraction is the only new logic**, and it's the same local-Ollama
   pattern the family classifier already uses (`app/agents/family.py`'s
   `IMPORT_EXTRACT_PROMPT` via `llm.complete_json`) — no Claude API call
@@ -132,9 +140,11 @@ added there.
 3. Open **Search household senders** → select the Gmail credential, and
    replace `REPLACE_WITH_HOUSEHOLD_SENDERS` in the search query with your
    actual allowlist, e.g. `school@example.org OR partner@example.com`.
-4. Open **Send confirm prompt** → set **Chat ID** (same as the other
+4. Open **Get full message** too → select the same Gmail credential (both
+   Gmail nodes need it bound independently).
+5. Open **Send confirm prompt** → set **Chat ID** (same as the other
    workflows).
-5. **Publish**.
+6. **Publish**.
 
 ### Verify
 

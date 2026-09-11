@@ -37,7 +37,38 @@
           "name": "REPLACE - Gmail account"
         }
       },
-      "notes": "q's from:(...) is a plain n8n-side allowlist filter, not backend logic — same 'thin trigger' spirit as the Telegram chat-id binding elsewhere. \"simple\": true returns subject/from/snippet without MIME parsing; snippet (Gmail's short plain-text preview) is used as the body sent to extraction below rather than the full message."
+      "notes": "q's from:(...) is a plain n8n-side allowlist filter, not backend logic — same 'thin trigger' spirit as the Telegram chat-id binding elsewhere. Only used to find matching message ids here; the next node fetches each message's real content, since Gmail's simplified snippet is too short to contain anything past a forwarded email's header block."
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "options": { "simple": false }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [480, 0],
+      "id": "ff000006-0000-4000-8000-000000000006",
+      "name": "Get full message",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "REPLACE - Gmail account"
+        }
+      },
+      "notes": "simple: false returns the raw MIME payload (headers + base64url-encoded body parts) instead of the truncated snippet — necessary for forwarded emails, where the real content sits well past what a short snippet preview would capture."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pull Subject + a plain-text body out of the raw Gmail message payload.\n// Gmail base64url-encodes part bodies (- and _ instead of + and /, no\n// padding); walk payload.parts recursively since multipart messages nest.\nfunction header(payload, name) {\n  const h = (payload.headers || []).find(\n    (x) => x.name.toLowerCase() === name.toLowerCase()\n  );\n  return h ? h.value : '';\n}\nfunction findPart(payload, mimeType) {\n  if (!payload) return null;\n  if (payload.mimeType === mimeType && payload.body && payload.body.data) {\n    return payload.body.data;\n  }\n  if (payload.parts) {\n    for (const p of payload.parts) {\n      const found = findPart(p, mimeType);\n      if (found) return found;\n    }\n  }\n  return null;\n}\nfunction decode(data) {\n  return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');\n}\nfunction stripHtml(html) {\n  return html\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst payload = $json.payload || {};\nconst subject = header(payload, 'Subject');\nlet body = '';\nconst plain = findPart(payload, 'text/plain');\nif (plain) {\n  body = decode(plain);\n} else {\n  const html = findPart(payload, 'text/html');\n  if (html) body = stripHtml(decode(html));\n}\nreturn { json: { id: $json.id, subject, body: body.slice(0, 3000) } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 0],
+      "id": "ff000007-0000-4000-8000-000000000007",
+      "name": "Decode body"
     },
     {
       "parameters": {
@@ -45,12 +76,12 @@
         "url": "http://nexus-backend:8000/agents/family/import/extract",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ subject: $json.Subject, body: $json.snippet, message_id: $json.id }) }}",
+        "jsonBody": "={{ JSON.stringify({ subject: $json.subject, body: $json.body, message_id: $json.id }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [480, 0],
+      "position": [920, 0],
       "id": "ff000003-0000-4000-8000-000000000003",
       "name": "Extract candidate"
     },
@@ -72,7 +103,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [700, 0],
+      "position": [1140, 0],
       "id": "ff000004-0000-4000-8000-000000000004",
       "name": "candidate != null?"
     },
@@ -84,7 +115,7 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [920, -80],
+      "position": [1360, -80],
       "id": "ff000005-0000-4000-8000-000000000005",
       "name": "Send confirm prompt",
       "credentials": {
@@ -97,6 +128,12 @@
       "main": [[{ "node": "Search household senders", "type": "main", "index": 0 }]]
     },
     "Search household senders": {
+      "main": [[{ "node": "Get full message", "type": "main", "index": 0 }]]
+    },
+    "Get full message": {
+      "main": [[{ "node": "Decode body", "type": "main", "index": 0 }]]
+    },
+    "Decode body": {
       "main": [[{ "node": "Extract candidate", "type": "main", "index": 0 }]]
     },
     "Extract candidate": {
