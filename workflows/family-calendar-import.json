@@ -1,0 +1,81 @@
+{
+  "name": "Family Calendar Import (Cron - GCal to /agents/family/import)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 6 * * *" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "ee000001-0000-4000-8000-000000000001",
+      "name": "Schedule (daily 06:00, before the 07:00 digest)"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": { "mode": "list", "value": "primary" },
+        "returnAll": true,
+        "options": {
+          "timeMin": "={{ $now.toISO() }}",
+          "timeMax": "={{ $now.plus({ days: 30 }).toISO() }}",
+          "singleEvents": true
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [260, 0],
+      "id": "ee000002-0000-4000-8000-000000000002",
+      "name": "Get upcoming events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "REPLACE - Google Calendar account"
+        }
+      },
+      "notes": "singleEvents: true expands recurring events into individual occurrences, so this workflow never has to replicate family_events' yearly/monthly/weekly recurrence logic — every row imported from GCal is a one-off occurrence."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Normalize GCal events into the /agents/family/import shape.\n// GCal all-day events use a bare date in start.date/end.date; timed\n// events use start.dateTime/end.dateTime. NULL start_time == all-day,\n// per family_events' schema convention.\nconst toItem = (ev) => {\n  const allDay = !ev.start.dateTime;\n  const start = allDay ? ev.start.date : ev.start.dateTime;\n  return {\n    source: 'gcal',\n    external_id: ev.id,\n    title: ev.summary || '(untitled)',\n    event_date: start.slice(0, 10),\n    start_time: allDay ? null : start.slice(11, 16),\n    end_time: allDay ? null : (ev.end && ev.end.dateTime ? ev.end.dateTime.slice(11, 16) : null),\n    location: ev.location || null,\n    notes: ev.description || null,\n    recurrence: null,\n  };\n};\nreturn [{ json: { items: $input.all().map((i) => toItem(i.json)) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "id": "ee000003-0000-4000-8000-000000000003",
+      "name": "Normalize to import shape"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://nexus-backend:8000/agents/family/import",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [700, 0],
+      "id": "ee000004-0000-4000-8000-000000000004",
+      "name": "Call /agents/family/import"
+    }
+  ],
+  "connections": {
+    "Schedule (daily 06:00, before the 07:00 digest)": {
+      "main": [[{ "node": "Get upcoming events", "type": "main", "index": 0 }]]
+    },
+    "Get upcoming events": {
+      "main": [[{ "node": "Normalize to import shape", "type": "main", "index": 0 }]]
+    },
+    "Normalize to import shape": {
+      "main": [[{ "node": "Call /agents/family/import", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

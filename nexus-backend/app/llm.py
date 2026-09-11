@@ -38,11 +38,25 @@ async def complete_json(prompt: str) -> dict | None:
         "stream": False,
         "think": False,  # JOURNAL.md #10
         "format": "json",
+        # Every caller here is structured classification/extraction, not
+        # creative generation — we want the model's most-confident answer
+        # every time, not sampling variance across identical prompts.
+        "options": {"temperature": 0},
     }
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(f"{settings.llm_base_url}/api/generate", json=body)
         resp.raise_for_status()
-        return _extract_json(resp.json())
+        data = resp.json()
+        parsed = _extract_json(data)
+        # Temporary visibility while chasing inconsistent extraction —
+        # `docker compose logs nexus-backend` shows exactly what the model
+        # actually said, instead of guessing from the parsed result alone.
+        print(
+            f"[llm.complete_json] response={data.get('response')!r} "
+            f"thinking={(data.get('thinking') or '')[:300]!r} parsed={parsed!r}",
+            flush=True,
+        )
+        return parsed
 
 
 def _extract_json(data: dict) -> dict | None:

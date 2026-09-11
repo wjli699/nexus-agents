@@ -22,6 +22,9 @@ TODAY = date(2026, 9, 1)  # Tuesday
         ("december 25", date(2026, 12, 25)),
         ("mid october", date(2026, 10, 15)),
         ("5 october", date(2026, 10, 5)),
+        # LLM-extracted phrases often keep the redundant weekday name
+        ("Tuesday, October 6", date(2026, 10, 6)),
+        ("Wednesday, September 16th", date(2026, 9, 16)),
         ("the 15th", date(2026, 9, 15)),
         ("the 1st", date(2026, 9, 1)),            # today is the 1st
         ("the 2nd", date(2026, 9, 2)),

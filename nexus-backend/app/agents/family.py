@@ -1,18 +1,24 @@
-"""Family / household agent (ROADMAP M3).
+"""Family / household agent (ROADMAP M3, M3.5).
 
 `handle()` sub-classifies the message as an **event** (calendar) or a
 **task** (to-do), then dispatches. Events live in `family_events`; tasks go
 through the shared `app/tasks.py` with `domain='family'`.
 
-Manual entry only in M3 — calendar/email import is M3.5. `_event_remove`
-only touches `source='manual'` rows so imported events can't be deleted
-from Telegram (they'd just reappear on the next import).
+`_event_remove` only touches `source='manual'` rows so imported events
+can't be deleted from Telegram (they'd just reappear on the next import).
+
+M3.5 adds import: `/agents/family/import` (GCal + confirmed email events)
+writes directly into `family_events`; `/agents/family/import/extract`
+(Gmail) instead queues a candidate in `pending_family_imports` for a
+"confirm N" / "skip N" reply, checked deterministically in `handle()`
+before the LLM classifier ever runs.
 """
 
 from __future__ import annotations
 
 import calendar
-from datetime import date, time, timedelta
+import re
+from datetime import date, datetime, time, timedelta
 
 from .. import db, dates, llm, tasks
 from ..config import get_settings
@@ -46,7 +52,12 @@ CLASSIFY_PROMPT = (
 )
 
 
+_PENDING_RE = re.compile(r"^(confirm|skip)\s+(\d+)$", re.IGNORECASE)
+
+
 async def handle(message: str) -> str:
+    if m := _PENDING_RE.match(message.strip()):
+        return await _handle_pending(m.group(1).lower(), int(m.group(2)))
     intent = await _classify(message)
     if intent["kind"] == "task":
         return await _handle_task(intent)
@@ -223,6 +234,179 @@ async def _upcoming(limit: int = 20) -> list:
             out.append((occ, r))
     out.sort(key=lambda pair: pair[0])
     return out[:limit]
+
+
+# --- import: idempotent write for externally-sourced events (ROADMAP M3.5) -
+
+
+async def import_events(items: list[dict]) -> dict:
+    """Upsert normalized events keyed on (source, external_id), so
+    re-running an import (a daily GCal sync, a re-processed email) never
+    duplicates a row — it just refreshes it."""
+    pool = db.get_pool()
+    inserted = updated = 0
+    for item in items:
+        was_insert = await pool.fetchval(
+            "INSERT INTO family_events "
+            "(title, event_date, start_time, end_time, location, notes, "
+            "recurrence, source, external_id) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) "
+            "ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL "
+            "DO UPDATE SET "
+            "title = EXCLUDED.title, event_date = EXCLUDED.event_date, "
+            "start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time, "
+            "location = EXCLUDED.location, notes = EXCLUDED.notes, "
+            "recurrence = EXCLUDED.recurrence "
+            "RETURNING (xmax = 0)",
+            item["title"],
+            item["event_date"],
+            item.get("start_time"),
+            item.get("end_time"),
+            item.get("location"),
+            item.get("notes"),
+            item.get("recurrence"),
+            item["source"],
+            item["external_id"],
+        )
+        if was_insert:
+            inserted += 1
+        else:
+            updated += 1
+    return {"inserted": inserted, "updated": updated}
+
+
+# --- email import: extract + confirm loop (ROADMAP M3.5) ------------------
+
+IMPORT_EXTRACT_PROMPT = (
+    "You extract calendar event details from a household email, if any.\n"
+    "Reply JSON only, no other text: "
+    '{{"is_event":bool,"title":str|null,"date_phrase":str|null,'
+    '"time":"HH:MM"|null,"location":str|null}}\n'
+    "- is_event = true only if this email is about a specific dated "
+    "event/appointment/activity — not a newsletter, receipt, or ad.\n"
+    '- date_phrase = the date words exactly as written ("friday", '
+    '"march 15", "2026-10-02"). Do NOT convert to a number. null if none.\n'
+    "- Emails are often a casual, conversational reminder, not a formal "
+    "announcement — still extract the event buried in the sentence.\n"
+    'Example: Subject: "Reminder: Fall Picnic" Body: "Just a reminder '
+    "that the Fall Picnic is happening on October 3, 2026 at 4:30 PM in "
+    'the school courtyard. Hope to see you there!" -> '
+    '{{"is_event":true,"title":"Fall Picnic","date_phrase":"October 3, 2026",'
+    '"time":"16:30","location":"school courtyard"}}\n'
+    "Subject: {subject}\n"
+    "Body: {body}"
+)
+
+
+_HTML_TAG_RE = re.compile(r"<style[\s\S]*?</style>|<script[\s\S]*?</script>|<[^>]+>")
+
+
+def _strip_html(html: str) -> str:
+    return re.sub(r"\s+", " ", _HTML_TAG_RE.sub(" ", html)).strip()
+
+
+def _parse_received(received: str | None) -> date | None:
+    """Best-effort parse of an email's own Date header (ISO-ish, possibly
+    with a trailing Z) into a plain date, for resolving relative phrases
+    ("this Friday") against when the email actually arrived — not against
+    whatever day we happen to be processing it on, which drifts wrong if
+    there's any lag before it gets confirmed."""
+    if not received:
+        return None
+    try:
+        return datetime.fromisoformat(received.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
+async def extract_candidate(
+    subject: str,
+    body: str,
+    message_id: str,
+    html: str | None = None,
+    received: str | None = None,
+) -> dict:
+    """LLM-extract an event from an email and queue it in
+    pending_family_imports for a "confirm N" / "skip N" reply. Returns
+    {"candidate": None} if it's not an event, the date can't be resolved,
+    or this message_id was already queued/handled by a prior run.
+
+    `body` is the preferred plain-text content; `html` is a fallback for a
+    message with no plain-text part (some Gmail clients only send HTML) —
+    deciding between them is real logic, so it lives here rather than in
+    the n8n workflow that calls this endpoint. `received` is the email's
+    own Date header — relative phrases ("this Friday") resolve against
+    that, not against today, since the email may not get confirmed until
+    well after it arrived.
+
+    "Already handled" is checked against family_events, not just
+    pending_family_imports — a confirmed email's pending row gets deleted,
+    so without this a still-in-window message could be re-extracted and
+    re-prompted on a later run as if it were new."""
+    already_confirmed = await db.get_pool().fetchval(
+        "SELECT 1 FROM family_events WHERE source = 'email' AND external_id = $1",
+        message_id,
+    )
+    if already_confirmed:
+        return {"candidate": None}
+
+    body = body if body and body.strip() else (_strip_html(html) if html else "")
+    parsed = await llm.complete_json(
+        IMPORT_EXTRACT_PROMPT.format(subject=subject, body=body)
+    ) or {}
+    if not parsed.get("is_event"):
+        return {"candidate": None}
+
+    title = _clean_str(parsed.get("title"))
+    date_phrase = _clean_str(parsed.get("date_phrase"))
+    reference = _parse_received(received) or date.today()
+    event_date = dates.resolve(date_phrase, reference) if date_phrase else None
+    if not title or not event_date:
+        return {"candidate": None}
+
+    event_time = _parse_time(parsed.get("time"))
+    location = _clean_str(parsed.get("location"))
+    snippet = f"{subject}\n{body}".strip()[:200]
+
+    pending_id = await db.get_pool().fetchval(
+        "INSERT INTO pending_family_imports "
+        "(external_id, title, event_date, start_time, location, raw_snippet) "
+        "VALUES ($1, $2, $3, $4, $5, $6) "
+        "ON CONFLICT (external_id) DO NOTHING RETURNING id",
+        message_id, title, event_date, event_time, location, snippet,
+    )
+    if pending_id is None:
+        return {"candidate": None}
+    return {
+        "candidate": {
+            "id": pending_id,
+            "title": title,
+            "date": event_date.isoformat(),
+            "time": event_time.strftime("%H:%M") if event_time else None,
+            "location": location,
+        }
+    }
+
+
+async def _handle_pending(action: str, pending_id: int) -> str:
+    pool = db.get_pool()
+    rows = await pool.fetch(
+        "SELECT external_id, title, event_date, start_time, end_time, "
+        "location, notes, recurrence FROM pending_family_imports WHERE id = $1",
+        pending_id,
+    )
+    if not rows:
+        return f"No pending import #{pending_id}."
+    row = rows[0]
+    if action == "confirm":
+        item = dict(row)
+        item["source"] = "email"
+        await import_events([item])
+    await pool.execute("DELETE FROM pending_family_imports WHERE id = $1", pending_id)
+    if action == "skip":
+        return "Skipped."
+    tm = f" {row['start_time'].strftime('%H:%M')}" if row["start_time"] else ""
+    return f"Added event: {row['title']} — {_fmt_date(row['event_date'])}{tm}"
 
 
 # --- heartbeat: morning digest (ROADMAP M3) ---------------------------

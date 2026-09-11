@@ -163,3 +163,182 @@ def test_heartbeat_includes_overdue_task(monkeypatch, fake_pool):
     out = _run(family.heartbeat(lookahead_days=1))
     assert out["alert"] is True
     assert "#3 pay bill (overdue)" in out["text"]
+
+
+# --- import: idempotent write for externally-sourced events (ROADMAP M3.5) -
+
+
+def _item(**overrides):
+    item = {
+        "source": "gcal",
+        "external_id": "evt-1",
+        "title": "Dentist",
+        "event_date": date(2026, 10, 2),
+        "start_time": None,
+        "end_time": None,
+        "location": None,
+        "notes": None,
+        "recurrence": None,
+    }
+    item.update(overrides)
+    return item
+
+
+def test_import_new_event_inserts(fake_pool):
+    pool = fake_pool(fetchval_queue=[True])
+    out = _run(family.import_events([_item()]))
+    assert out == {"inserted": 1, "updated": 0}
+    assert pool.calls[0][0] == "fetchval"
+    # The WHERE clause must match family_events_source_external_id's partial
+    # index predicate exactly, or Postgres rejects the ON CONFLICT target.
+    assert "ON CONFLICT (source, external_id) WHERE external_id IS NOT NULL" in pool.calls[0][1]
+
+
+def test_import_existing_event_updates_not_duplicates(fake_pool):
+    # Same (source, external_id) re-imported — the upsert takes the DO
+    # UPDATE branch, so xmax != 0 and FakePool is configured to return that.
+    pool = fake_pool(fetchval_queue=[False])
+    out = _run(family.import_events([_item(title="Dentist (rescheduled)")]))
+    assert out == {"inserted": 0, "updated": 1}
+    assert pool.calls[0][2][0] == "Dentist (rescheduled)"
+
+
+def test_import_mixed_batch_tallies_both(fake_pool):
+    fake_pool(fetchval_queue=[True, False, True])
+    out = _run(family.import_events([
+        _item(external_id="evt-1"),
+        _item(external_id="evt-2"),
+        _item(external_id="evt-3", source="email"),
+    ]))
+    assert out == {"inserted": 2, "updated": 1}
+
+
+# --- email import: extract + confirm loop (ROADMAP M3.5) ------------------
+
+
+def test_extract_not_an_event_returns_none(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, {"is_event": False})
+    fake_pool(fetchval_queue=[None])  # not already confirmed
+    out = _run(family.extract_candidate("Weekly newsletter", "stuff", "msg-1"))
+    assert out == {"candidate": None}
+
+
+def test_extract_already_confirmed_short_circuits(monkeypatch, fake_pool):
+    # Confirming deletes the pending_family_imports row, so that alone
+    # can't signal "already handled" -- family_events is the durable check.
+    pool = fake_pool(fetchval_queue=[True])  # already in family_events
+    out = _run(family.extract_candidate("School play", "body text", "msg-3"))
+    assert out == {"candidate": None}
+    assert "family_events" in pool.calls[0][1]
+
+
+def test_extract_falls_back_to_stripped_html_when_body_empty(monkeypatch, fake_pool):
+    seen = {}
+
+    async def fake(prompt):
+        seen["prompt"] = prompt
+        return {
+            "is_event": True, "title": "Fall Picnic", "date_phrase": "2026-10-03",
+            "time": None, "location": None,
+        }
+
+    monkeypatch.setattr(family.llm, "complete_json", fake)
+    fake_pool(fetchval_queue=[None, 9])  # not already confirmed, then insert id
+    html = "<html><body><p>Join us <b>October 3, 2026</b> for the picnic!</p></body></html>"
+    out = _run(family.extract_candidate("Fall Picnic", "", "msg-html", html=html))
+    assert out == {"candidate": {
+        "id": 9, "title": "Fall Picnic", "date": "2026-10-03",
+        "time": None, "location": None,
+    }}
+    # The stripped text, not raw markup, went into the extraction prompt.
+    assert "<p>" not in seen["prompt"]
+    assert "Join us October 3, 2026 for the picnic!" in seen["prompt"]
+
+
+def test_extract_unresolvable_date_returns_none(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, {
+        "is_event": True, "title": "Recital", "date_phrase": "sometime soonish",
+        "time": None, "location": None,
+    })
+    fake_pool(fetchval_queue=[None])  # not already confirmed
+    out = _run(family.extract_candidate("Recital", "body", "msg-2"))
+    assert out == {"candidate": None}
+
+
+def test_extract_valid_event_queues_and_returns_candidate(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, {
+        "is_event": True, "title": "School play", "date_phrase": "2026-10-02",
+        "time": "18:30", "location": "Gym",
+    })
+    pool = fake_pool(fetchval_queue=[None, 7])  # not already confirmed, then insert id
+    out = _run(family.extract_candidate("School play", "body text", "msg-3"))
+    assert out == {"candidate": {
+        "id": 7, "title": "School play", "date": "2026-10-02",
+        "time": "18:30", "location": "Gym",
+    }}
+    assert "pending_family_imports" in pool.calls[1][1]
+
+
+def test_extract_resolves_relative_phrase_against_received_date(monkeypatch, fake_pool):
+    # "this Friday" must resolve relative to when the email actually
+    # arrived, not whenever we happen to process/confirm it later.
+    _stub_classify(monkeypatch, {
+        "is_event": True, "title": "Coffee", "date_phrase": "this Friday",
+        "time": None, "location": None,
+    })
+    fake_pool(fetchval_queue=[None, 8])  # not already confirmed, then insert id
+    out = _run(family.extract_candidate(
+        "Coffee", "body", "msg-received",
+        received="2026-09-01T12:00:00.000Z",  # a Tuesday
+    ))
+    assert out["candidate"]["date"] == "2026-09-04"  # that week's Friday
+
+
+def test_extract_dedupes_already_queued_message(monkeypatch, fake_pool):
+    _stub_classify(monkeypatch, {
+        "is_event": True, "title": "School play", "date_phrase": "2026-10-02",
+        "time": None, "location": None,
+    })
+    # not already confirmed, then ON CONFLICT DO NOTHING (still pending)
+    fake_pool(fetchval_queue=[None, None])
+    out = _run(family.extract_candidate("School play", "body text", "msg-3"))
+    assert out == {"candidate": None}
+
+
+def _pending_row(**overrides):
+    row = {
+        "external_id": "msg-1",
+        "title": "Dentist",
+        "event_date": date(2026, 10, 2),
+        "start_time": None,
+        "end_time": None,
+        "location": None,
+        "notes": None,
+        "recurrence": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_confirm_pending_adds_event_and_clears_row(fake_pool):
+    pool = fake_pool(fetch_rows=[_pending_row()], fetchval_queue=[True])
+    out = _run(family.handle("confirm 5"))
+    assert out.startswith("Added event: Dentist")
+    kinds = [c[0] for c in pool.calls]
+    assert kinds == ["fetch", "fetchval", "execute"]
+    delete_call = pool.calls[2]
+    assert "DELETE FROM pending_family_imports" in delete_call[1]
+    assert delete_call[2] == (5,)
+
+
+def test_skip_pending_deletes_without_adding(fake_pool):
+    pool = fake_pool(fetch_rows=[_pending_row()])
+    out = _run(family.handle("skip 5"))
+    assert out == "Skipped."
+    assert [c[0] for c in pool.calls] == ["fetch", "execute"]
+
+
+def test_confirm_unknown_pending_id_is_reported(fake_pool):
+    fake_pool(fetch_rows=[])
+    out = _run(family.handle("confirm 99"))
+    assert out == "No pending import #99."

@@ -50,6 +50,10 @@ def resolve(phrase, today: date):
         stripped = re.sub(
             r"^(by|on|due|before|until|no later than|the|this coming|coming|around|sometime) ",
             "", p)
+        # A leading weekday name is common in LLM-extracted phrases ("Tuesday,
+        # October 6") but redundant once a month/day follows — drop it so the
+        # month-day matcher below can fullmatch the rest.
+        stripped = re.sub(rf"^({_WD}),?\s+", "", stripped)
         if stripped == p:
             break
         p = stripped

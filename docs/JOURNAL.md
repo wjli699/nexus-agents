@@ -216,3 +216,27 @@ Fixes, in order of convenience:
   ...contents...
   EOF
   ```
+
+---
+
+## 13. Google OAuth2 credential in n8n: "Unable to sign without access token"
+
+Hit while wiring up the M3.5 Google Calendar/Gmail credentials. The consent
+screen completes normally — n8n shows the credential as connected — but the
+node fails at execution time with `Unable to sign without access token`.
+
+Cause: `tailscale funnel` (see #5) puts a reverse proxy in front of n8n.
+Without telling n8n it's behind one, it mishandles the OAuth callback and
+never actually persists the access token, even though the UI looks
+successful.
+
+Fix: set `N8N_PROXY_HOPS=1` in the n8n service's environment
+(`docker/docker-compose.yml`), recreate the container, then **delete and
+recreate** any Google credential made before the fix — editing an existing
+broken credential in place doesn't pick up a fresh token, it has to be
+redone from scratch.
+
+```bash
+cd docker
+docker compose up -d --force-recreate n8n
+```
