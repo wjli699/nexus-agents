@@ -398,13 +398,18 @@ async def _handle_pending(action: str, pending_id: int) -> str:
     if not rows:
         return f"No pending import #{pending_id}."
     row = rows[0]
-    if action == "confirm":
-        item = dict(row)
-        item["source"] = "email"
-        await import_events([item])
-    await pool.execute("DELETE FROM pending_family_imports WHERE id = $1", pending_id)
     if action == "skip":
+        # Leave the row in place rather than deleting it: its external_id
+        # is what blocks re-extraction (via the UNIQUE constraint + ON
+        # CONFLICT DO NOTHING in extract_candidate) on the Gmail poller's
+        # next run. Deleting it here used to make a skipped email look
+        # brand-new again on every subsequent poll within the `newer_than`
+        # search window, re-sending the same confirm prompt repeatedly.
         return "Skipped."
+    item = dict(row)
+    item["source"] = "email"
+    await import_events([item])
+    await pool.execute("DELETE FROM pending_family_imports WHERE id = $1", pending_id)
     tm = f" {row['start_time'].strftime('%H:%M')}" if row["start_time"] else ""
     return f"Added event: {row['title']} — {_fmt_date(row['event_date'])}{tm}"
 

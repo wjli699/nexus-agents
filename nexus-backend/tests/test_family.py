@@ -331,11 +331,14 @@ def test_confirm_pending_adds_event_and_clears_row(fake_pool):
     assert delete_call[2] == (5,)
 
 
-def test_skip_pending_deletes_without_adding(fake_pool):
+def test_skip_pending_leaves_row_to_block_reextraction(fake_pool):
+    # Skip must NOT delete the row -- its external_id is what stops the
+    # Gmail poller from re-extracting and re-prompting the same email on
+    # its next run (see extract_candidate's ON CONFLICT DO NOTHING).
     pool = fake_pool(fetch_rows=[_pending_row()])
     out = _run(family.handle("skip 5"))
     assert out == "Skipped."
-    assert [c[0] for c in pool.calls] == ["fetch", "execute"]
+    assert [c[0] for c in pool.calls] == ["fetch"]
 
 
 def test_confirm_unknown_pending_id_is_reported(fake_pool):
