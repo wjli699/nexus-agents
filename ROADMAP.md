@@ -173,10 +173,13 @@ keeps working throughout: Google imports stay in n8n until M4.6.
 Port ideas from `reference/portfolio-orchestrator/orch/{bot,telegram}.py`,
 switching `urllib` for `httpx` and threads for asyncio.
 
-- [ ] `app/telegram.py` — async long-polling task started from FastAPI
+- [x] `app/telegram.py` — async long-polling task started from FastAPI
       `lifespan`; owner allowlist (private chats only, log-and-ignore
       everyone else), command + callback registry, HTML send/edit helpers.
-      Calls the existing `/handle` logic in-process
+      Calls the existing `/handle` logic in-process (extracted into
+      `app/dispatch.py`, shared with the `/handle` route itself). Gated on
+      `TELEGRAM_BOT_TOKEN` being set — n8n stays the trigger layer until the
+      cutover below is done by hand
 - [ ] **Cutover gotcha:** deactivate `agent-slim` in n8n *before* starting
       the poller, and call `deleteWebhook` once — a bot token has exactly
       one consumer, and `getUpdates` returns 409 Conflict while a webhook

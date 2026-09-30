@@ -49,7 +49,7 @@ def test_handle_dispatches_to_agent(monkeypatch):
         return "handled by family"
 
     monkeypatch.setattr(agent_router, "classify", route)
-    monkeypatch.setattr("app.routers.root.family_agent.handle", family_handle)
+    monkeypatch.setattr("app.dispatch.family_agent.handle", family_handle)
     resp = client.post("/handle", json={"message": "add task walk dog"})
     assert resp.json() == {"text": "handled by family"}
 
@@ -111,7 +111,7 @@ def test_handle_allows_the_owner(monkeypatch, owner):
         return "handled by family"
 
     monkeypatch.setattr(agent_router, "classify", route)
-    monkeypatch.setattr("app.routers.root.family_agent.handle", family_handle)
+    monkeypatch.setattr("app.dispatch.family_agent.handle", family_handle)
     resp = client.post("/handle", json={"message": "list", "user_id": 111})
     assert resp.json() == {"text": "handled by family"}
 

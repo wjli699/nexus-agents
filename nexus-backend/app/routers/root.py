@@ -10,19 +10,13 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from .. import dispatch
 from .. import router as agent_router
-from ..agents import family as family_agent
-from ..agents import stock as stock_agent
 from ..config import get_settings
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["router"])
-
-_UNKNOWN = (
-    "I can help with stocks (prices, watchlist) or family (events, to-dos). "
-    'Try "AAPL price" or "add task ...".'
-)
 
 
 class MessageRequest(BaseModel):
@@ -58,9 +52,4 @@ def _check_owner(user_id: Optional[int]) -> None:
 @router.post("/handle", response_model=TextResponse)
 async def handle(req: MessageRequest) -> TextResponse:
     _check_owner(req.user_id)
-    agent = await agent_router.classify(req.message)
-    if agent == "stock":
-        return TextResponse(text=await stock_agent.handle(req.message))
-    if agent == "family":
-        return TextResponse(text=await family_agent.handle(req.message))
-    return TextResponse(text=_UNKNOWN)
+    return TextResponse(text=await dispatch.process_message(req.message))
