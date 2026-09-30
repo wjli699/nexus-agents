@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # reachable from Telegram, where anyone who finds the username could
     # otherwise read and change family events, tasks and pending imports.
     telegram_owner_id: int = 0
+    # From @BotFather. Empty = the native gateway (app/telegram.py, M4) stays
+    # off and n8n's Telegram Trigger keeps handling updates — set this only
+    # once you've done the cutover (deactivate agent-slim in n8n, the token
+    # has exactly one consumer: docs in ROADMAP.md M4).
+    telegram_bot_token: str = ""
 
     # --- Heartbeats ---
     # Stock (M2): a watchlist ticker moving at least this many percent (up or
