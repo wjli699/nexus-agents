@@ -215,23 +215,40 @@ have proven useful. The goal is that "Claude built me a task app in five
 minutes" can be talking to Telegram the same afternoon, and be iterated on
 for days, without a nexus commit.
 
-- [ ] A registered-apps config (one entry: name, base URL, health path,
-      optional tailnet port) read at startup — the reusable part. Model it
-      on `reference/.../config/apps.json`, minus the supervisor
+**The registry is the general mechanism for future apps, not a
+portfolio-specific shortcut (owner decision, 2026-09-30).** Portfolio is
+the first consumer. Any later host app — another tracker, a task board,
+whatever gets built next — reaches chat the same way: register, declare
+its read commands, done. See `CLAUDE.md`'s PORTFOLIO-MERGE revision notes.
+
+- [ ] A registered-apps config read at startup: per app, name, base URL,
+      health path, optional tailnet port, and a `commands` map of read
+      command name -> `{method, path}`. Model the supervisor fields on
+      `reference/.../config/apps.json`; the `commands` map is new (owner
+      decision, 2026-09-30) and is what makes the registry reusable for
+      apps beyond portfolio, not just supervisor metadata
+- [ ] A generic command adapter: given a classified app + command name,
+      look up the manifest entry, call the app's endpoint, return the JSON
+      as chat text. This is what lets a brand-new read-only app answer chat
+      queries with zero nexus-backend commits — just a manifest file next
+      to it. Portfolio's `/summary` / `/holdings` / `/growth` /
+      `/history` are the first commands to go through it
 - [ ] Reaching a host app from the backend container needs
       `host.docker.internal` plus `extra_hosts: ["host.docker.internal:
       host-gateway"]` on Linux — verify and write it down in JOURNAL
-- [ ] **Each registered app declares its own fixed command set.** This is
-      the constraint that keeps the registry from becoming the open-ended
-      "tool execution with full user permissions" pattern `CLAUDE.md`
-      decision 4 rejects. A registry that can call anything is exactly what
-      this project promises not to be
+- [ ] **Each registered app declares its own fixed command set, in its
+      manifest.** This is the constraint that keeps the registry from
+      becoming the open-ended "tool execution with full user permissions"
+      pattern `CLAUDE.md` decision 4 rejects. A registry that can call
+      anything is exactly what this project promises not to be
 - [ ] Read-only supervisor parts only, per PORTFOLIO-MERGE decision 6:
       `/status` (health checks) and `/open` (Tailscale Serve links). No
       start/stop — that needs the Docker socket, which is root-equivalent
-- [ ] `app/agents/portfolio.py` — `calc.py`, `ops.py`, `views.py` port
-      almost unchanged (pure Python); the tracker client switches to async
-      `httpx`
+- [ ] `app/agents/portfolio.py` — owns the *write* path only: parses
+      free-text edits into typed ops behind the Confirm gate. `calc.py`,
+      `ops.py`, `views.py` port almost unchanged (pure Python); the tracker
+      client switches to async `httpx`. Read commands go through the
+      generic manifest adapter above, not bespoke handlers here
 - [ ] **Local Ollama parses the free-text edits, not the Claude API**
       (owner decision — supersedes PORTFOLIO-MERGE decision 3; no
       `ANTHROPIC_API_KEY`). The tool-use JSON schema becomes a JSON-only
@@ -246,8 +263,11 @@ for days, without a nexus commit.
 - [ ] Add `portfolio` to `AGENTS` in `app/router.py` and to the router
       prompt (holdings, allocation, rebalancing, buys/sells, deposits,
       T-bills)
-- [ ] Commands: `/summary`, `/holdings`, `/growth`, `/refresh`,
-      `/snapshot`, `/undo`, `/history`, `/open`, `/status`
+- [ ] Commands: fixed/read commands go through the generic manifest
+      adapter — `/summary`, `/holdings`, `/growth`, `/history`, `/refresh`,
+      `/snapshot`, `/undo`, `/open`, `/status`; free-text edits (buy, sell,
+      set targets, deposits, T-bills) go through the bespoke
+      classify-parse-Confirm path in `app/agents/portfolio.py`
 - [ ] Port the 16 tests from `reference/.../orchestrator/tests/` to pytest,
       plus the test that runs the UI's JS under node and compares — the
       bot's math must match the tracker UI exactly

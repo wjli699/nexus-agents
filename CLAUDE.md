@@ -89,6 +89,20 @@ Full architecture rationale, roadmap, and API spec are in this repo:
      iterated freely) and registers with Nexus so it's reachable over
      Telegram without editing the nexus codebase; moving it into compose is
      a later "graduation" step, once the app has proven useful.
+   - **Declarative command manifest, not one bespoke agent per app
+     (2026-09-30).** Decision 6's registered-apps config widens from
+     supervisor-only metadata (name / base URL / health path / tailnet
+     port) to also declare each app's fixed *read* command set — one entry
+     per command, `{method, path}`. A single generic adapter in
+     nexus-backend dispatches against that manifest, so a brand-new
+     read-only app ("what's my gain today," or whatever Claude Desktop
+     builds next) answers chat queries with a manifest file next to it, not
+     a nexus-backend commit. Writes still need a bespoke per-app
+     typed-operation schema and the Confirm gate — decision 4 (fixed,
+     explicit command sets, never open-ended tool execution) still applies
+     in full; the manifest only collapses the read path. This is meant to
+     generalize past portfolio: it's the mechanism for "many small local
+     apps," not a portfolio-specific shortcut. See ROADMAP.md M4.5.
 
 ## Known gotchas (see docs/JOURNAL.md for full detail)
 
