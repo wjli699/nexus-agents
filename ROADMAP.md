@@ -15,6 +15,16 @@ required.** Milestones 4-8 below exist to make that sentence true. M9+
 (Project agent, News agent, everything in Backlog) are explicitly
 post-alpha — do not pull from them until the true north above is met.
 
+**One deliberate exception (2026-09-29): M4.5, the portfolio agent.** It is
+owner-only work that does not advance the true north, and it is scheduled
+before the alpha packaging milestones anyway — the owner's call, made
+knowingly. The reasons it is worth the delay: it retires a second always-on
+service (a Mac launchd bot that goes silent whenever the laptop sleeps), and
+the host-app registration it introduces is reusable infrastructure rather
+than one agent's plumbing. Its *tracker* stays personal — real holdings,
+an unofficial Yahoo quote endpoint — and is not part of the alpha's
+advertised feature set. See `docs/PORTFOLIO-MERGE.md`.
+
 Why this reprioritization (2026-09-11): M3.5 shipped a real,
 differentiated feature (Gmail extraction + confirm loop) but getting it
 working live surfaced how much of the *setup* friction lives in n8n
@@ -138,24 +148,133 @@ central hub for family events + family to-dos. Manual entry only.
 - [x] n8n Gmail node → filter household senders → local-LLM extract
       candidate events → Telegram "add this? y/n" confirm loop → import
 
-## Milestone 4: Replace n8n with a native gateway
+## Milestone 3.9: Security fixes — DONE
+Found while reviewing the repo for the portfolio merge; done ahead of
+everything else because both were live exposures, not future risks.
+
+- [x] The bot answered anyone: `/handle` now requires `TELEGRAM_OWNER_ID`
+      to match the sender, and `agent-slim.json` passes `message.from.id`.
+      A missing `user_id` fails closed; rejections log the sender id but
+      never the message text
+- [x] `8000:8000` and `5678:5678` published the unauthenticated backend and
+      the whole n8n editor to the LAN — both now bind `127.0.0.1` only
+- [ ] Funnel still exposes the n8n editor publicly; that goes away with
+      n8n itself in M4.6
+
+## Milestone 4: Leave n8n, part 1 — native gateway
 Goal: eliminate n8n as a dependency entirely. Every real bug this whole
 project has had lived in the Python backend and got caught by tests;
 every hour of live-debugging pain in M3.5 was n8n's UI/version drift.
 `CLAUDE.md` decision 1 already anticipated this — "migrating off n8n
 later doesn't require rewriting agent logic" — this is that migration,
-not a reversal.
+not a reversal. Split into parts 1 (this) and 2 (M4.6) so the system
+keeps working throughout: Google imports stay in n8n until M4.6.
 
-- [ ] `app/gateway/telegram.py` — polling or webhook listener calling the
-      same `/handle` the router already exposes; replaces `agent-slim.json`
-- [ ] `app/gateway/scheduler.py` — in-process scheduler (e.g. APScheduler)
-      replacing n8n's Cron triggers for the stock/family heartbeats
+Port ideas from `reference/portfolio-orchestrator/orch/{bot,telegram}.py`,
+switching `urllib` for `httpx` and threads for asyncio.
+
+- [ ] `app/telegram.py` — async long-polling task started from FastAPI
+      `lifespan`; owner allowlist (private chats only, log-and-ignore
+      everyone else), command + callback registry, HTML send/edit helpers.
+      Calls the existing `/handle` logic in-process
+- [ ] **Cutover gotcha:** deactivate `agent-slim` in n8n *before* starting
+      the poller, and call `deleteWebhook` once — a bot token has exactly
+      one consumer, and `getUpdates` returns 409 Conflict while a webhook
+      is registered. The heartbeat and Gmail workflows only *send*, so
+      they keep working
+- [ ] Parity check the same way M1 did (`scripts/parity_check.py`): every
+      existing stock and family command works through the poller
+- [ ] `app/scheduler.py` — in-process asyncio scheduler, timezone-aware via
+      `GENERIC_TIMEZONE`, replacing the stock heartbeat, family heartbeat
+      and calendar-import cron triggers
 - [ ] Decommission `workflows/agent-slim.json`, `stock-heartbeat.json`,
       `family-heartbeat.json` once the gateway covers them 1:1
+- [ ] `app/changes.py` — the shared proposal → Confirm/Cancel → write →
+      audit → undo pipeline, ported from `orch/changes.py`. An `audit_log`
+      table in Postgres (add to `sql/init.sql`) replaces JSONL; "before"
+      copies go in a JSONB column
+- [ ] Keep the semantics exactly: re-check the data fingerprint at confirm
+      and rebuild the preview if it changed; previews expire after 10
+      minutes; `/undo` restores the before-copy **only if** the current
+      fingerprint still equals the recorded after-fingerprint, and
+      otherwise refuses and explains why
+- [ ] (Optional, later) move the family "confirm N / skip N" flow onto
+      buttons now that a button pipeline exists
+
+## Milestone 4.5: Portfolio agent + host-app registration
+Owner-only; see the true-north exception above and `docs/PORTFOLIO-MERGE.md`.
+Retires the Mac launchd orchestrator, whose bot went silent whenever the
+laptop slept.
+
+**Host-first, graduate later (owner decision, 2026-09-29 — supersedes
+PORTFOLIO-MERGE decision 2).** An app under active iteration runs on the
+host from whatever folder it lives in, and *registers* with Nexus so it is
+reachable over Telegram without editing the nexus codebase. Moving it into
+`docker-compose.yml` is a later, optional graduation step for apps that
+have proven useful. The goal is that "Claude built me a task app in five
+minutes" can be talking to Telegram the same afternoon, and be iterated on
+for days, without a nexus commit.
+
+- [ ] A registered-apps config (one entry: name, base URL, health path,
+      optional tailnet port) read at startup — the reusable part. Model it
+      on `reference/.../config/apps.json`, minus the supervisor
+- [ ] Reaching a host app from the backend container needs
+      `host.docker.internal` plus `extra_hosts: ["host.docker.internal:
+      host-gateway"]` on Linux — verify and write it down in JOURNAL
+- [ ] **Each registered app declares its own fixed command set.** This is
+      the constraint that keeps the registry from becoming the open-ended
+      "tool execution with full user permissions" pattern `CLAUDE.md`
+      decision 4 rejects. A registry that can call anything is exactly what
+      this project promises not to be
+- [ ] Read-only supervisor parts only, per PORTFOLIO-MERGE decision 6:
+      `/status` (health checks) and `/open` (Tailscale Serve links). No
+      start/stop — that needs the Docker socket, which is root-equivalent
+- [ ] `app/agents/portfolio.py` — `calc.py`, `ops.py`, `views.py` port
+      almost unchanged (pure Python); the tracker client switches to async
+      `httpx`
+- [ ] **Local Ollama parses the free-text edits, not the Claude API**
+      (owner decision — supersedes PORTFOLIO-MERGE decision 3; no
+      `ANTHROPIC_API_KEY`). The tool-use JSON schema becomes a JSON-only
+      prompt in the existing `app/llm.py` style: `temperature: 0`,
+      `"think": false`, few-shot examples. Every write already requires an
+      explicit Confirm press, which is what makes a smaller model safe here
+- [ ] Accuracy probe first, like the M3 date probe (11/11) — the portfolio
+      op set (buy/sell/targets/deposits/T-bills) is far richer than
+      `check/add/remove/list`, and this is the real risk in the milestone.
+      If a local model can't hold it, *that* is the concrete case for
+      reopening the Claude API decision
+- [ ] Add `portfolio` to `AGENTS` in `app/router.py` and to the router
+      prompt (holdings, allocation, rebalancing, buys/sells, deposits,
+      T-bills)
+- [ ] Commands: `/summary`, `/holdings`, `/growth`, `/refresh`,
+      `/snapshot`, `/undo`, `/history`, `/open`, `/status`
+- [ ] Port the 16 tests from `reference/.../orchestrator/tests/` to pytest,
+      plus the test that runs the UI's JS under node and compares — the
+      bot's math must match the tracker UI exactly
+- [ ] Preserve, from PORTFOLIO-MERGE "Things to preserve": UTC snapshot
+      dates (not `GENERIC_TIMEZONE`); T-bills as manual holdings (qty =
+      face ÷ 100); weighted-average cost on buys into an existing holding;
+      refresh-prices-first ordering; the tracker's `rev` revision check on
+      every write; percentages-only in chat unless `show_amounts_in_chat`;
+      and **no quantities or dollar values in any LLM prompt**
+- [ ] The real `data/` folder is copied from the Mac by hand and must never
+      be committed — add it to `.gitignore` before it exists
+- [ ] Once verified end-to-end: run `scripts/uninstall_service.sh` on the
+      Mac to remove the launchd orchestrator (owner confirmed)
+
+## Milestone 4.6: Leave n8n, part 2 — Google imports + decommission
+The hardest part to leave n8n, so it is deliberately last.
+
+- [ ] Move the Calendar and Gmail imports into the backend: Google API
+      client plus OAuth token storage (the n8n credential store goes away,
+      so tokens need somewhere to live)
+- [ ] Turn off Tailscale Funnel — nothing needs a public inbound URL once
+      Telegram is long-polling and no webhooks remain
 - [ ] Drop the `n8n` service from the default `docker-compose.yml`
       entirely (keep `docker/optional-n8n/` for anyone who still wants
       the visual builder for their *own* custom workflows on top)
-- [ ] Rewrite `docs/SETUP.md` for the n8n-free path
+- [ ] Rewrite `docs/SETUP.md` for the n8n-free path; update README and
+      JOURNAL (the n8n gotchas become historical context, not live advice)
 
 ## Milestone 5: Bundled small local LLM (CPU / small GPU)
 Goal: "connect LLM" means "already there," not "separately install Ollama
