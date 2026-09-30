@@ -12,7 +12,10 @@ services:
     image: docker.n8n.io/n8nio/n8n:latest   # pin to a specific tag once stable, see README
     restart: unless-stopped
     ports:
-      - "5678:5678"
+      # localhost only: the editor has no business being reachable from the
+      # rest of the LAN. Tailscale funnel/serve proxies to localhost, and n8n
+      # reaches the backend over the compose network, so nothing breaks.
+      - "127.0.0.1:5678:5678"
     environment:
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/Los_Angeles}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
@@ -36,7 +39,10 @@ services:
     build: ../nexus-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"          # also reachable in-network as http://nexus-backend:8000
+      # localhost only — the backend has no auth of its own beyond the owner
+      # check on /handle, so it must not be published to the LAN. Other
+      # compose services still reach it as http://nexus-backend:8000.
+      - "127.0.0.1:8000:8000"
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-nexus}
@@ -45,6 +51,7 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL:-http://localhost:11434}
       - LLM_MODEL=${LLM_MODEL:-qwen3.5:9b}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
+      - TELEGRAM_OWNER_ID=${TELEGRAM_OWNER_ID:-0}
       - HEARTBEAT_MOVE_THRESHOLD_PCT=${HEARTBEAT_MOVE_THRESHOLD_PCT:-5.0}
       - FAMILY_DIGEST_LOOKAHEAD_DAYS=${FAMILY_DIGEST_LOOKAHEAD_DAYS:-1}
     depends_on:

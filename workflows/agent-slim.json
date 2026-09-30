@@ -18,7 +18,7 @@
         "url": "http://nexus-backend:8000/handle",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.message.text) }}\n}",
+        "jsonBody": "={\n  \"message\": {{ JSON.stringify($json.message.text) }},\n  \"user_id\": {{ $json.message.from.id }}\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

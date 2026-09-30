@@ -104,6 +104,12 @@ Postgres, not sent anywhere external).
 2. Follow the prompts, get your bot token
 3. Keep the token handy — don't commit it anywhere, it goes into an n8n
    credential (encrypted at rest by n8n), not into this repo
+4. **Lock the bot to yourself.** A Telegram bot answers anyone who finds its
+   username, and the agents read and write your real calendar, tasks and
+   pending imports. Message **@userinfobot** to get your numeric user ID and
+   set `TELEGRAM_OWNER_ID` in `.env` before you point the bot at the backend.
+   Anything else gets a 403 from `/handle` and no reply. Leaving it at `0`
+   disables the check — only safe while nothing is reachable from Telegram.
 
 ---
 

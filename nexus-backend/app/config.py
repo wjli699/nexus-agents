@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # --- External APIs ---
     alpha_vantage_api_key: str = ""
 
+    # --- Telegram ---
+    # Only this Telegram user may reach POST /handle. 0 = unset, which leaves
+    # the endpoint open — fine for local curl/tests, NOT for a bot that's
+    # reachable from Telegram, where anyone who finds the username could
+    # otherwise read and change family events, tasks and pending imports.
+    telegram_owner_id: int = 0
+
     # --- Heartbeats ---
     # Stock (M2): a watchlist ticker moving at least this many percent (up or
     # down) on the day triggers an alert. Deterministic — no LLM.
