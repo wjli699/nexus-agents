@@ -76,6 +76,20 @@ Full architecture rationale, roadmap, and API spec are in this repo:
    explicitly structured — a vector DB would be solving a recall problem
    this project doesn't have.
 
+7. **Read `docs/PORTFOLIO-MERGE.md`** — the plan for porting the portfolio
+   orchestrator (`reference/portfolio-orchestrator/`, gitignored) into
+   nexus-backend and leaving n8n. Its "Decisions" section has the same status
+   as the ones above, except where the owner has since revised it:
+   - **No Claude API yet.** Decision 3 (Claude for portfolio parsing) and
+     decision 8's `ANTHROPIC_API_KEY` are deferred — portfolio free-text
+     parsing uses the same local Ollama as everything else until local
+     accuracy proves insufficient. The Confirm gate is what makes this safe.
+   - **Host-first app integration.** Decision 2 assumed the tracker moves
+     into Docker. Instead, an external app runs on the host (any folder,
+     iterated freely) and registers with Nexus so it's reachable over
+     Telegram without editing the nexus codebase; moving it into compose is
+     a later "graduation" step, once the app has proven useful.
+
 ## Known gotchas (see docs/JOURNAL.md for full detail)
 
 - Local reasoning models (Qwen3) put JSON in the `thinking` field unless

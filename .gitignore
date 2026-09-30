@@ -7,6 +7,9 @@
 n8n-data/
 n8n_data/
 
+# Source material to port from, not code we build (docs/PORTFOLIO-MERGE.md)
+reference/
+
 # OS cruft
 .DS_Store
 Thumbs.db
